@@ -1,4 +1,5 @@
 import YAML from "yaml";
+import fs from 'fs';
 
 export type FluttergenConfig = {
     rename?: YamlRenameConfig;
@@ -23,7 +24,9 @@ export type YamlImageConfig = {
 }
 
 export function parsePubspecYamlFile(path: string): FluttergenConfig {
-    const fs = require('fs');
+    if (!fs.existsSync(path)) {
+        throw new Error(`Required file not found: ${path}`);
+    }
     const yamlContent = fs.readFileSync(path, 'utf8');
     return parsePubspecYaml(yamlContent);
 }

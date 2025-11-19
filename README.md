@@ -18,7 +18,7 @@ npm install -g fluttergen
 Add a `fluttergen` configuration section to your Flutter project's `pubspec.yaml` file, then run:
 
 ```bash
-bun fluttergen
+bunx fluttergen
 # or
 npx fluttergen
 ```
