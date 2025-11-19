@@ -1,4 +1,4 @@
-#!/usr/bin/env bun
+#!/usr/bin/env node
 
 import {parsePubspecYamlFile} from "./yaml_parser.ts";
 import {useImageGenerator} from "./useImageGenerator.ts";
