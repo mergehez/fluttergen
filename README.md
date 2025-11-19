@@ -5,6 +5,8 @@
 
 Flutter helper CLI tools for automating app configuration tasks including renaming, icon generation, and splash screen setup.
 
+The tool replaces well-known flutter tools like [rename](https://pub.dev/packages/rename), [flutter_launcher_icons](https://pub.dev/packages/flutter_launcher_icons) and [flutter_native_splash](https://pub.dev/packages/flutter_native_splash).
+
 You'll need to have [Node.js](https://nodejs.org/) or [Bun](https://bun.sh/) installed to use this tool.
 
 ## Installation
