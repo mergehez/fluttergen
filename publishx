@@ -1,0 +1,21 @@
+import {execSync} from "node:child_process";
+import packageJson from './package.json' with {type: "json"};
+import fs from "fs";
+
+const packageJsonStr = JSON.stringify(packageJson, null, 2);
+
+execSync('npm version patch', {stdio: 'inherit'});
+try {
+    execSync('bun run build', {stdio: 'inherit'});
+    execSync('npm publish --access=public', {stdio: 'inherit'});
+    execSync('npm cache clean --force', {stdio: 'inherit'});
+    execSync('npm i -g fluttergen', {stdio: 'inherit'});
+    execSync('npm list -g', {stdio: 'inherit'});
+    execSync('bun add --global fluttergen --force', {stdio: 'inherit'});
+    console.info('Publishing succeeded.');
+} catch (e) {
+    console.error('Publishing failed:', e);
+    console.info('Reverting package.json to previous state.');
+    fs.writeFileSync('./package.json', packageJsonStr);
+    process.exit(1);
+}
