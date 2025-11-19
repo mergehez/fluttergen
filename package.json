@@ -1,0 +1,50 @@
+{
+  "name": "fluttergen",
+  "version": "0.0.3",
+  "description": "flutter helper cli tools!",
+  "author": "mergehez <argesozdogan@gmail.com>",
+  "license": "MIT",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mergehez/fluttergen.git"
+  },
+  "homepage": "https://github.com/mergehez/fluttergen",
+  "files": [
+    "dist"
+  ],
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.js"
+    }
+  },
+  "bin": {
+    "fluttergen": "dist/index.js"
+  },
+  "scripts": {
+    "dev": "bun --bun ./src",
+    "build": "tsc && bun build src/index.ts --target bun --format esm --outdir ./dist --external sharp",
+    "publishx": "npm version patch && bun run build && npm publish --access=public && bun run install-global",
+    "install-global": "npm cache clean --force && npm i -g fluttergen && npm list -g && bun add --global fluttergen --force",
+    "test": "rm -rf aa || true && flutter create --platforms ios,android --org=ku.mergo -e aa && cp ./dist/index.js ./aa && cp ./pubspec.yaml ./aa && cp -r ./assets ./aa && cd ./aa && bun run index.js"
+  },
+  "devDependencies": {
+    "@types/color-name": "^2.0.0",
+    "@types/node": "^24.10.1",
+    "@types/prompts": "^2.4.9",
+    "@types/xml2js": "^0.4.14",
+    "typescript": "~5.9.3"
+  },
+  "overrides": {
+    "vite": "npm:rolldown-vite@7.2.2"
+  },
+  "dependencies": {
+    "color-convert": "^3.1.3",
+    "sharp": "^0.34.5",
+    "xml2js": "^0.6.2",
+    "yaml": "^2.8.1"
+  }
+}
