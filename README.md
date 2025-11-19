@@ -5,6 +5,8 @@
 
 Flutter helper CLI tools for automating app configuration tasks including renaming, icon generation, and splash screen setup.
 
+You'll need to have [Node.js](https://nodejs.org/) or [Bun](https://bun.sh/) installed to use this tool.
+
 ## Installation
 
 ```bash
