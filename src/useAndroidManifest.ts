@@ -35,7 +35,7 @@ export function useAndroidManifest() {
     }
 
     ensureAttribute('manifest', 'xmlns:tools', 'http://schemas.android.com/tools');
-    ensureAttribute('activity', 'tools:replace', 'android:label');
+    ensureAttribute('application', 'tools:replace', 'android:label');
 
     const updateOrCreateMetaData = (name: string, resource: string) => {
         const index = allLines.findIndex(line => line.includes(`android:name="${name}"`));
