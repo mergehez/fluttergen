@@ -8,14 +8,20 @@ execSync('npm version patch', {stdio: 'inherit'});
 try {
     execSync('bun run build', {stdio: 'inherit'});
     execSync('npm publish --access=public', {stdio: 'inherit'});
-    execSync('npm cache clean --force', {stdio: 'inherit'});
-    execSync('npm i -g fluttergen', {stdio: 'inherit'});
-    execSync('npm list -g', {stdio: 'inherit'});
-    execSync('bun add --global fluttergen --force', {stdio: 'inherit'});
-    console.info('Publishing succeeded.');
 } catch (e) {
     console.error('Publishing failed:', e);
     console.info('Reverting package.json to previous state.');
     fs.writeFileSync('./package.json', packageJsonStr);
     process.exit(1);
 }
+
+try {
+    execSync('npm cache clean --force', {stdio: 'inherit'});
+    execSync('npm i -g fluttergen', {stdio: 'inherit'});
+    execSync('npm list -g', {stdio: 'inherit'});
+    execSync('bun add --global fluttergen --force', {stdio: 'inherit'});
+} catch (_) {
+    console.warn('Global installation verification failed, but publishing was successful.');
+}
+
+console.info('Publishing succeeded.');
