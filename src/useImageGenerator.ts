@@ -544,14 +544,22 @@ export function useImageGenerator(config: FluttergenConfig) {
     async function ensureColorResource(colorName: string, hexValue: string) {
         fs.mkdirSync(path.dirname(colorsXmlPath), {recursive: true});
 
+        const contentIfEmpty = `<?xml version="1.0" encoding="utf-8"?>\n<resources>\n<color name="${colorName}">${hexValue}</color>\n</resources>`;
         if (!fs.existsSync(colorsXmlPath)) {
-            fs.writeFileSync(colorsXmlPath, `<?xml version="1.0" encoding="utf-8"?>\n<resources>\n</resources>`);
+            fs.writeFileSync(colorsXmlPath, contentIfEmpty);
+            console.log(`- Android colors.xml created: Added ${colorName} to ${hexValue}`);
+            // return;
         }
         let content = fs.readFileSync(colorsXmlPath, 'utf-8');
 
         //TODO: find a better library to preserve comments!
         const [parsed, xmlBuilder] = await useXmlParser(content);
-        const colors = ensureArr(parsed.resources?.color);
+        if (!parsed.resources) {
+            fs.writeFileSync(colorsXmlPath, contentIfEmpty);
+            console.log(`- Android colors.xml recreated: Added ${colorName} to ${hexValue}`);
+            return;
+        }
+        const colors = ensureArr(parsed.resources.color);
 
         const index = colors.findIndex((item: any) => item.$.name === colorName);
         if (index !== -1) {
@@ -559,7 +567,8 @@ export function useImageGenerator(config: FluttergenConfig) {
         } else {
             colors.push({_: hexValue, $: {name: colorName}});
         }
-        content = xmlBuilder(parsed);
+        // parsed.resources.color = colors;
+        content = xmlBuilder(parsed)
         fs.writeFileSync(colorsXmlPath, content);
         console.log(`- Android colors.xml updated: Added ${colorName} to ${hexValue}`);
     }
