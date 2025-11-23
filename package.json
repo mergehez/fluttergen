@@ -13,16 +13,8 @@
   "files": [
     "dist"
   ],
-  "main": "dist/index.js",
-  "module": "dist/index.js",
-  "exports": {
-    ".": {
-      "import": "./dist/index.js",
-      "require": "./dist/index.js"
-    }
-  },
   "bin": {
-    "fluttergen": "dist/index.js"
+    "fluttergen": "dist/index.cjs"
   },
   "scripts": {
     "dev": "bun --bun ./src",

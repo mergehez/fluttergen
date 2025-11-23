@@ -4,9 +4,11 @@ import {parsePubspecYamlFile} from "./yaml_parser.ts";
 import {useImageGenerator} from "./useImageGenerator.ts";
 import {useNamer} from "./useNamer.ts";
 import fs from "fs";
+import path from "path";
 
 if (process.argv.includes('--version') || process.argv.includes('-v')) {
-    const pkg = fs.readFileSync('../package.json');
+    const pkgPath = path.join(__dirname, '../package.json');
+    const pkg = fs.readFileSync(pkgPath);
     const packageJson = JSON.parse(pkg.toString());
     console.log(`fluttergen version ${packageJson.version}`);
     process.exit(0);

@@ -4,16 +4,25 @@ import fs from "fs";
 
 execSync('tsc');
 
+// @ts-ignore
+const pkg = JSON.parse(fs.readFileSync(new URL('./package.json', import.meta.url)).toString());
+
 esbuild.build({
     bundle: true,
     minify: false,
     platform: 'node',
     format: 'cjs',
     target: 'node16',
-    outfile: "dist/index.js",
+    outfile: "dist/index.cjs",
     entryPoints: ["src/index.ts"],
+    external: [
+        ...Object.keys(pkg.dependencies),
+        ...Object.keys(pkg.peerDependencies || {})
+    ],
     loader: {'.txt': 'text'},
-}).catch(() => process.exit(1));
+}).then(() => {
+    const bytes = fs.statSync('./dist/index.cjs').size;
+    console.log(`Build completed. Output file size: ${Math.round(bytes / 1024)} KB`);
+})
+    .catch(() => process.exit(1));
 
-const bytes = fs.statSync('./dist/index.js').size;
-console.log(`Build completed. Output file size: ${Math.round(bytes / 1024)} KB`);
