@@ -336,12 +336,8 @@ export function useImageGenerator(config: FluttergenConfig) {
         const rgbDark = colorConverter.anyToRgba(config.splash.bgColorDark || config.splash.bgColor);
 
         // 1. Ensure Color Resources Exist
-        if (rgb) {
-            ensureColorResource(`${androidSplashName}_color`, colorConverter.rgbaToHex(rgb));
-        }
-        if (rgbDark) {
-            ensureColorResource(`${androidSplashName}_color_night`, colorConverter.rgbaToHex(rgbDark));
-        }
+        await ensureColorResource(`${androidSplashName}_color`, rgb ? colorConverter.rgbaToHex(rgb) : '#FFFFFF');
+        await ensureColorResource(`${androidSplashName}_color_night`, rgbDark ? colorConverter.rgbaToHex(rgbDark) : '#000000');
 
 
         await updateStylesForSplash();
