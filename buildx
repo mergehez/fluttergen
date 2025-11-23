@@ -1,0 +1,21 @@
+import esbuild, {BuildOptions} from 'esbuild';
+import {execSync} from "child_process";
+import fs from "fs";
+
+execSync('tsc');
+
+esbuild.build({
+    entryPoints: ['./src/index.ts'],
+    bundle: true,
+    outfile: './dist/index.js',
+    platform: 'node',
+    format: 'esm',
+    // sourcemap: true,
+    target: 'node16',
+    external: ['sharp'],
+
+    loader: {'.txt': 'text'},
+} satisfies BuildOptions).catch(() => process.exit(1));
+
+const bytes = fs.statSync('./dist/index.js').size;
+console.log(`Build completed. Output file size: ${Math.round(bytes / 1024)} KB`);

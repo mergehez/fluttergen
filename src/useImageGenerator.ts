@@ -2,13 +2,13 @@ import fs from "fs";
 import path from "path";
 import sharp from "sharp";
 // @ts-ignore
-import iosSplashTemplate from "./stub/ios-splash.txt" with {type: "string"};
+import iosSplashTemplate from "./stub/ios-splash.txt";
 // @ts-ignore
-import andStylesXml from "./stub/styles.txt" with {type: "string"};
+import andStylesXml from "./stub/styles.txt";
 // @ts-ignore
-import andStylesNightXml from "./stub/styles-night.txt" with {type: "string"};
+import andStylesNightXml from "./stub/styles-night.txt";
 // @ts-ignore
-import andStylesV31Xml from "./stub/styles-v31.txt" with {type: "string"};
+import andStylesV31Xml from "./stub/styles-v31.txt";
 import {FluttergenConfig, YamlImageConfig} from "./yaml_parser.ts";
 import {colorConverter, RgbObject} from "./colorConverter.ts";
 import {useInfoPlist} from "./useInfoPlist.ts";
