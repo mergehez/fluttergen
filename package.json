@@ -20,7 +20,7 @@
     "dev": "bun --bun ./src",
     "build": "bun buildx",
     "buildOld": "tsc && rm -rf dist && bun build src/index.ts --target node --format esm --outdir ./dist --external sharp",
-    "test": "rm -rf aa || true && flutter create --platforms ios,android --org=ku.mergo -e aa && cp ./dist/index.js ./aa && cp ./pubspec.yaml ./aa && cp -r ./assets ./aa && cd ./aa && bun run index.js"
+    "test": "bun testx"
   },
   "devDependencies": {
     "@types/color-name": "^2.0.0",

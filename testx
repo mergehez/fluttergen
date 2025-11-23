@@ -1,0 +1,13 @@
+// rm -rf aa || true && flutter create --platforms ios,android --org=ku.mergo -e aa && cp ./dist/index.js ./aa && cp ./pubspec.yaml ./aa && cp -r ./assets ./aa && cd ./aa && bun run index.js
+
+import fs from "fs";
+import {execSync} from "child_process";
+
+execSync('rm -rf aa || true', {stdio: 'inherit'});
+execSync('flutter create --platforms ios,android --org=ku.mergo -e aa');
+execSync("bun buildx", {stdio: 'inherit'});
+fs.copyFileSync('./dist/index.cjs', './aa/index.cjs');
+fs.copyFileSync('./pubspec.yaml', './aa/pubspec.yaml');
+fs.copyFileSync('./manifest.xml', './aa/android/app/src/main/AndroidManifest.xml');
+fs.cpSync('./assets', './aa/assets', {recursive: true});
+execSync('cd aa && bun run index.cjs', {stdio: 'inherit'});
