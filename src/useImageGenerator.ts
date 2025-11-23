@@ -378,7 +378,7 @@ export function useImageGenerator(config: FluttergenConfig) {
         const splashV31Path = path.join(drawableFolder, `${androidSplashName}_12.png`);
 
         // XML Drawable paths
-        const splashXmlPath = path.join(drawableFolder, `${androidSplashName}.xml`);
+        const splashXmlPath = path.join(drawableFolder, `${androidSplashName}_light.xml`);
         const splashDarkXmlPath = path.join(drawableFolder, `${androidSplashName}_dark.xml`);
 
 
@@ -444,13 +444,13 @@ export function useImageGenerator(config: FluttergenConfig) {
 </layer-list>`;
         };
 
-        // 6a. Generate Default XML (`drawable/${androidSplashName}.xml`)
+        // 6a. Generate Default XML (`drawable/${androidSplashName}_light.xml`)
         const defaultXmlContent = generateSplashXml(
             `${androidSplashName}_color`,
             androidSplashName
         );
         fs.writeFileSync(splashXmlPath, defaultXmlContent);
-        console.log(`- Android splash drawable XML (drawable/${androidSplashName}.xml) generated.`);
+        console.log(`- Android splash drawable XML (drawable/${androidSplashName}_light.xml) generated.`);
 
         // 6b. Generate Dark XML (`drawable/${androidSplashName}_dark.xml`)
         const darkXmlContent = generateSplashXml(
