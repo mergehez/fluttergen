@@ -52,21 +52,29 @@ const resizeConfig = {
     iosSplash: []
 };
 
+function ensureNoExtension(filePath: string): string {
+    const parts = filePath.split('.');
+    if (parts.length > 1) {
+        parts.pop();
+    }
+    return parts.join('.');
+}
+
 export function useImageGenerator(config: FluttergenConfig) {
     // console.log("Generating icons and splash with config:", config);
-    const androidIconName = config.icon.androidName || 'ic_launcher';
-    const iosIconName = config.icon.iosName || 'AppIcon';
-    const androidSplashName = config.splash.androidName || 'splash_screen';
-    const iosSplashName = config.splash.iosName || 'LaunchImage';
+    const androidIconName = ensureNoExtension(config.icon.androidName || 'ic_launcher');
+    const iosIconName = ensureNoExtension(config.icon.iosName || 'AppIcon');
+    const androidSplashName = ensureNoExtension(config.splash.androidName || 'splash_screen');
+    const iosSplashName = ensureNoExtension(config.splash.iosName || 'LaunchImage');
     const storyboardName = 'LaunchScreen';
-    const notificationIconName = (config.icon.androidName || 'ic') + '_notification';
+    const notificationIconName = androidIconName.replace('_launcher', '') + '_notification';
     const notificationColorName = 'notification_accent_color';
     const iosIconPadding = 0.05;
     const iosSplashPadding = 0.16;
     const androidAdaptivePadding = 0.16;
     const androidLegacyIconPadding = 0.05;
 
-    async function generateIosIcons(iconConfig: YamlImageConfig) {
+    async function generateIosIcons() {
         const iconContents = useIosContentsJson(path.join(iosAssetsFolder, `${iosIconName}.appiconset/Contents.json`));
         iconContents.deleteOldFiles();
 
@@ -74,7 +82,7 @@ export function useImageGenerator(config: FluttergenConfig) {
             const fileName = `${iosIconName}-${size}@${scale}x${suffix}.png`;
             const outputPath = path.join(iosAssetsFolder, `${iosIconName}.appiconset`, fileName);
             await resizeImage({
-                ...iconConfig,
+                ...config.icon,
                 width: size * scale,
                 height: size * scale,
                 outputPath,
@@ -87,20 +95,20 @@ export function useImageGenerator(config: FluttergenConfig) {
         for (const [idiom, size, scales] of resizeConfig.ios) {
             // console.log(`Resizing icon to ${size}x${size} for iOS idiom ${idiom} with scales ${scales.join(', ')}`);
             for (const scale of scales) {
-                await resizeAndAdd(iconConfig, idiom, size, scale);
+                await resizeAndAdd(config.icon, idiom, size, scale);
             }
 
             // 'appearances' for ios-marketing (dark + tinted)
             if (idiom === 'ios-marketing') {
-                if (iconConfig.pathDark) {
+                if (config.icon.pathDark) {
                     await resizeAndAdd(
-                        {...iconConfig, path: iconConfig.pathDark, bgColor: iconConfig.bgColorDark ?? '',},
+                        {...config.icon, path: config.icon.pathDark, bgColor: config.icon.bgColorDark ?? '',},
                         idiom, size, scales[0], '-dark',
                         'dark'
                     );
                 }
                 await resizeAndAdd(
-                    iconConfig,
+                    config.icon,
                     idiom, size, scales[0], '-monochrome',
                     'monochrome'
                 );
@@ -113,14 +121,14 @@ export function useImageGenerator(config: FluttergenConfig) {
         plist.ensureKeyValue('CFBundleIconName', `<string>${iosIconName}</string>`);
     }
 
-    async function generateIosSplashScreen(splashConfig: YamlImageConfig) {
-        const imgMeta = await sharp(splashConfig.path).metadata();
+    async function generateIosSplashScreen() {
+        const imgMeta = await sharp(config.splash.path).metadata();
         if (!imgMeta.width || !imgMeta.height) {
             throw new Error("Could not get image dimensions for iOS splash screen.");
         }
         const storyboardWidth = 393;
         const storyboardHeight = 852;
-        let width1x = 1, height1x = 1;
+        let width1x, height1x;
         // iphone7,8,SE: 375x667 pt
         if (imgMeta.width >= imgMeta.height) {
             const wScale = storyboardWidth * (1 - iosSplashPadding) / imgMeta.width;
@@ -140,8 +148,8 @@ export function useImageGenerator(config: FluttergenConfig) {
                 const fileName = `${iosSplashName}@${scale}x${suffix}.png`;
                 const outputPath = path.join(iosAssetsFolder, `${iosSplashName}.imageset`, fileName);
                 await resizeImage({
-                    ...splashConfig,
-                    path: suffix ? splashConfig.pathDark || splashConfig.path : splashConfig.path,
+                    ...config.splash,
+                    path: suffix ? config.splash.pathDark || config.splash.path : config.splash.path,
                     width: width1x * scale,
                     height: height1x * scale,
                     outputPath,
@@ -164,8 +172,8 @@ export function useImageGenerator(config: FluttergenConfig) {
         splashImageContents.save();
         console.log(`- iOS splash images (${iosSplashName}) generated.`);
 
-        const rgb = colorConverter.anyToRgba(splashConfig.bgColor);
-        const rgbDark = colorConverter.anyToRgba(splashConfig.bgColorDark || splashConfig.bgColor);
+        const rgb = colorConverter.anyToRgba(config.splash.bgColor);
+        const rgbDark = colorConverter.anyToRgba(config.splash.bgColorDark || config.splash.bgColor);
         const colorAsset = {
             "colors": [
                 {
@@ -206,11 +214,11 @@ export function useImageGenerator(config: FluttergenConfig) {
     }
 
 
-    async function generateAndroidIcons(iconConfig: YamlImageConfig) {
+    async function generateAndroidIcons() {
         for (const [size, outputPathTemplate] of resizeConfig.android) {
             const outputPath = outputPathTemplate.replace('[NAME]', androidIconName);
             await resizeImage({
-                ...iconConfig,
+                ...config.icon,
                 width: size,
                 height: size,
                 outputPath,
@@ -219,7 +227,7 @@ export function useImageGenerator(config: FluttergenConfig) {
         }
         console.log("- Android icons (mipmap/*) generated.");
 
-        const rgb = colorConverter.anyToRgba(iconConfig.bgColor);
+        const rgb = colorConverter.anyToRgba(config.icon.bgColor);
         if (rgb) {
             ensureColorResource(`${androidIconName}_background`, colorConverter.rgbaToHex(rgb).substring(0, 7));
 
@@ -237,7 +245,7 @@ export function useImageGenerator(config: FluttergenConfig) {
             // 3. Loop through sizes to generate foreground PNGs (background PNG is NOT needed now).
             for (const [size, outputPathTemplate] of resizeConfig.androidAdaptive) {
                 await resizeImage({
-                    ...iconConfig,
+                    ...config.icon,
                     width: size,
                     height: size,
                     outputPath: outputPathTemplate.replace('[NAME]', androidIconName + '_foreground.png'),
@@ -246,7 +254,7 @@ export function useImageGenerator(config: FluttergenConfig) {
                 });
 
                 await resizeImage({
-                    ...iconConfig,
+                    ...config.icon,
                     width: size,
                     height: size,
                     outputPath: outputPathTemplate.replace('[NAME]', androidIconName + '_monochrome.png'),
@@ -270,8 +278,8 @@ export function useImageGenerator(config: FluttergenConfig) {
             console.log("- Android adaptive icons generated.");
         }
 
-        if (iconConfig.pathAndroidNotification !== false) {
-            const sourcePath = iconConfig.pathAndroidNotification || iconConfig.path;
+        if (config.icon.pathAndroidNotification !== false) {
+            const sourcePath = config.icon.pathAndroidNotification || config.icon.path;
 
             const CANVAS_DP = 32;
             const CONTENT_DP = 24;
@@ -297,7 +305,7 @@ export function useImageGenerator(config: FluttergenConfig) {
                 const outputPath = path.join(mipmapFolder, `${notificationIconName}.png`);
 
                 await resizeImage({
-                    ...iconConfig,
+                    ...config.icon,
                     path: sourcePath,
                     width: contentSizePx,
                     height: contentSizePx,
@@ -321,9 +329,9 @@ export function useImageGenerator(config: FluttergenConfig) {
         }
     }
 
-    async function generateAndroidSplashScreen(splashConfig: YamlImageConfig) {
-        const rgb = colorConverter.anyToRgba(splashConfig.bgColor);
-        const rgbDark = colorConverter.anyToRgba(splashConfig.bgColorDark || splashConfig.bgColor);
+    async function generateAndroidSplashScreen() {
+        const rgb = colorConverter.anyToRgba(config.splash.bgColor);
+        const rgbDark = colorConverter.anyToRgba(config.splash.bgColorDark || config.splash.bgColor);
 
         // 1. Ensure Color Resources Exist
         if (rgb) {
@@ -338,7 +346,7 @@ export function useImageGenerator(config: FluttergenConfig) {
         console.log("- Android styles.xml updated for splash screens.");
 
         // 3. Calculate Image Dimensions (Logo size only, no padding)
-        const imgMeta = await sharp(splashConfig.path).metadata();
+        const imgMeta = await sharp(config.splash.path).metadata();
         if (!imgMeta.width || !imgMeta.height) {
             throw new Error("Could not get image dimensions for Android splash screen.");
         }
@@ -376,7 +384,7 @@ export function useImageGenerator(config: FluttergenConfig) {
 
         // 5. Generate Logo PNGs (NO PADDING - XML will handle centering/padding)
         await resizeImage({
-            ...splashConfig,
+            ...config.splash,
             width: widthPx,
             height: heightPx,
             outputPath: splashLogoPath,
@@ -386,10 +394,10 @@ export function useImageGenerator(config: FluttergenConfig) {
         console.log(`- Android splash logo (drawable/${androidSplashName}.png) generated.`);
 
         // 5a. Generate Dark Mode Logo PNG (NO PADDING)
-        if (splashConfig.pathDark) {
+        if (config.splash.pathDark) {
             await resizeImage({
-                ...splashConfig,
-                path: splashConfig.pathDark,
+                ...config.splash,
+                path: config.splash.pathDark,
                 width: widthPx,
                 height: heightPx,
                 outputPath: splashDarkLogoPath,
@@ -402,8 +410,7 @@ export function useImageGenerator(config: FluttergenConfig) {
         // 5b. Generate Android 12+ Animated Icon (${androidSplashName}_12.png) - (Adaptive Padding needed here)
         const v31Size = 432;
         await resizeImage({
-            ...splashConfig,
-            path: splashConfig.path,
+            ...config.splash,
             width: v31Size,
             height: v31Size,
             outputPath: splashV31Path,
@@ -448,7 +455,7 @@ export function useImageGenerator(config: FluttergenConfig) {
         // 6b. Generate Dark XML (`drawable/${androidSplashName}_dark.xml`)
         const darkXmlContent = generateSplashXml(
             `${androidSplashName}_color_night`,
-            splashConfig.pathDark ? `${androidSplashName}_dark` : androidSplashName
+            config.splash.pathDark ? `${androidSplashName}_dark` : androidSplashName
         );
         fs.writeFileSync(splashDarkXmlPath, darkXmlContent);
         console.log(`- Android dark splash drawable XML (drawable/${androidSplashName}_dark.xml) generated.`);
@@ -610,11 +617,11 @@ export function useImageGenerator(config: FluttergenConfig) {
 
     return {
         execute: async () => {
-            await generateIosIcons(config.icon);
+            await generateIosIcons();
 
-            await generateIosSplashScreen(config.splash);
-            await generateAndroidIcons(config.icon);
-            await generateAndroidSplashScreen(config.splash);
+            await generateIosSplashScreen();
+            await generateAndroidIcons();
+            await generateAndroidSplashScreen();
         },
     }
 }
