@@ -15,15 +15,6 @@ try {
     process.exit(1);
 }
 
-try {
-    execSync('npm uninstall -g fluttergen --force', {stdio: 'inherit'});
-    execSync('npm cache clean --force', {stdio: 'inherit'});
-    execSync('npm i -g fluttergen --force', {stdio: 'inherit'});
-    execSync('npm list -g', {stdio: 'inherit'});
-    execSync('bun remove --global fluttergen', {stdio: 'inherit'});
-    execSync('bun add --global fluttergen --force', {stdio: 'inherit'});
-} catch (_) {
-    console.warn('Global installation verification failed, but publishing was successful.');
-}
+execSync('bun force-i', {stdio: 'inherit'});
 
 console.info('Publishing succeeded.');
