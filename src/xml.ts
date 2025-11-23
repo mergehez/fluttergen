@@ -2,10 +2,8 @@ import xml2js from 'xml2js';
 
 
 export async function useXmlParser(xmlString: string) {
-    const content = await xml2js.parseStringPromise(xmlString);
-
     return [
-        content,
+        JSON.parse(JSON.stringify(await xml2js.parseStringPromise(xmlString))),
         (obj: any) => {
             const builder = new xml2js.Builder({
                 renderOpts: {pretty: true, indent: '\t', newline: '\n'},
