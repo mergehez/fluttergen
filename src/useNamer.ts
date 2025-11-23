@@ -8,7 +8,7 @@ export function useNamer(config: YamlRenameConfig) {
         const manifest = useAndroidManifest();
         if (manifest) {
             manifest.ensureAttribute('application', 'android:label', config.appName);
-            manifest.save(`- Android App Name (label) updated to ${config.appName}`);
+            console.log(`- Android App Name (label) updated to ${config.appName}`);
         }
 
         const infoPlist = useInfoPlist('./ios/Runner/Info.plist');
@@ -21,7 +21,7 @@ export function useNamer(config: YamlRenameConfig) {
         const manifest = useAndroidManifest();
         if (manifest) {
             manifest.ensureAttribute('manifest', 'package', config.applicationId);
-            manifest.save(`- Android Manifest Package updated to ${config.applicationId}`);
+            console.log(`- Android Manifest Package updated to ${config.applicationId}`);
         }
 
         // 2. Update build.gradle applicationId

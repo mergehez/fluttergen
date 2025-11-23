@@ -324,8 +324,10 @@ export function useImageGenerator(config: FluttergenConfig) {
             if (config.icon.pathAndroidNotification !== false) {
                 manifest.updateOrCreateMetaData('com.google.firebase.messaging.default_notification_icon', `@mipmap/${notificationIconName}`);
                 manifest.updateOrCreateMetaData('com.google.firebase.messaging.default_notification_color', `@color/${notificationColorName}`);
+            } else {
+                console.log("- Android notification icon generation skipped as per configuration.");
             }
-            manifest.save("- AndroidManifest.xml updated for icons.");
+            console.log("- AndroidManifest.xml updated for icons.");
         }
     }
 
