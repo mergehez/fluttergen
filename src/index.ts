@@ -3,6 +3,12 @@
 import {parsePubspecYamlFile} from "./yaml_parser.ts";
 import {useImageGenerator} from "./useImageGenerator.ts";
 import {useNamer} from "./useNamer.ts";
+import packageJson from '../package.json' with {type: "json"};
+
+if (process.argv.includes('--version') || process.argv.includes('-v')) {
+    console.log(`fluttergen version ${packageJson.version}`);
+    process.exit(0);
+}
 
 const config = parsePubspecYamlFile('pubspec.yaml');
 console.log("Parsed Fluttergen Configuration:", config);
