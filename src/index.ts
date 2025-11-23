@@ -12,15 +12,23 @@ if (process.argv.includes('--version') || process.argv.includes('-v')) {
     process.exit(0);
 }
 
-const config = parsePubspecYamlFile('pubspec.yaml');
-console.log("Parsed Fluttergen Configuration:", config);
+async function main() {
 
-const imageGenerator = useImageGenerator(config);
-await imageGenerator.execute();
+    const config = parsePubspecYamlFile('pubspec.yaml');
+    console.log("Parsed Fluttergen Configuration:", config);
 
-if (config.rename) {
-    const namer = useNamer(config.rename)
-    namer.execute();
-} else {
-    console.log("No renaming configuration found, skipping renaming step.");
+    const imageGenerator = useImageGenerator(config);
+    await imageGenerator.execute();
+
+    if (config.rename) {
+        const namer = useNamer(config.rename)
+        namer.execute();
+    } else {
+        console.log("No renaming configuration found, skipping renaming step.");
+    }
 }
+
+main().catch(e => {
+    console.error("Error during execution:", e);
+    process.exit(1);
+});
