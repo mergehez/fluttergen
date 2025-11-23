@@ -24,18 +24,18 @@ const resizeConfig = {
     android: [
         [512, "./assets/icon-512x512.png"],
 
-        [48, `${androidResFolder}/mipmap-mdpi/[NAME].png`],
-        [72, `${androidResFolder}/mipmap-hdpi/[NAME].png`],
-        [96, `${androidResFolder}/mipmap-xhdpi/[NAME].png`],
-        [144, `${androidResFolder}/mipmap-xxhdpi/[NAME].png`],
-        [192, `${androidResFolder}/mipmap-xxxhdpi/[NAME].png`],
+        [48, `${androidResFolder}/mipmap-mdpi/[NAME]`],
+        [72, `${androidResFolder}/mipmap-hdpi/[NAME]`],
+        [96, `${androidResFolder}/mipmap-xhdpi/[NAME]`],
+        [144, `${androidResFolder}/mipmap-xxhdpi/[NAME]`],
+        [192, `${androidResFolder}/mipmap-xxxhdpi/[NAME]`],
     ] satisfies [number, string][],
     androidAdaptive: [
-        [108, `${androidResFolder}/mipmap-mdpi/[NAME].png`],
-        [162, `${androidResFolder}/mipmap-hdpi/[NAME].png`],
-        [216, `${androidResFolder}/mipmap-xhdpi/[NAME].png`],
-        [324, `${androidResFolder}/mipmap-xxhdpi/[NAME].png`],
-        [432, `${androidResFolder}/mipmap-xxxhdpi/[NAME].png`],
+        [108, `${androidResFolder}/mipmap-mdpi/[NAME]`],
+        [162, `${androidResFolder}/mipmap-hdpi/[NAME]`],
+        [216, `${androidResFolder}/mipmap-xhdpi/[NAME]`],
+        [324, `${androidResFolder}/mipmap-xxhdpi/[NAME]`],
+        [432, `${androidResFolder}/mipmap-xxxhdpi/[NAME]`],
     ] satisfies [number, string][],
     ios: [
         ['iphone', 20, [2, 3]],
@@ -82,7 +82,7 @@ export function useImageGenerator(config: FluttergenConfig) {
             const fileName = `${iosIconName}-${size}@${scale}x${suffix}.png`;
             const outputPath = path.join(iosAssetsFolder, `${iosIconName}.appiconset`, fileName);
             await resizeImage({
-                ...config.icon,
+                ...iconConfig,
                 width: size * scale,
                 height: size * scale,
                 outputPath,
@@ -216,7 +216,7 @@ export function useImageGenerator(config: FluttergenConfig) {
 
     async function generateAndroidIcons() {
         for (const [size, outputPathTemplate] of resizeConfig.android) {
-            const outputPath = outputPathTemplate.replace('[NAME]', androidIconName);
+            const outputPath = outputPathTemplate.replace('[NAME]', androidIconName + '.png');
             await resizeImage({
                 ...config.icon,
                 width: size,
