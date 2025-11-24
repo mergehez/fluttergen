@@ -24,15 +24,11 @@ export function useImageGenerator(config: FluttergenConfig) {
     // console.log("Generating icons and splash with config:", config);
     const androidResFolder = "./android/app/src/main/res";
     const iosAssetsFolder = "./ios/Runner/Assets.xcassets";
-    const androidIconName = ensureNoExtension(config.icon.name.android || 'ic_launcher');
-    const iosIconName = ensureNoExtension(config.icon.name.ios || 'AppIcon');
-    const androidSplashName = ensureNoExtension(config.splash.name.android || 'splash_screen');
-    const iosSplashName = ensureNoExtension(config.splash.name.ios || 'LaunchImage');
+    const androidIconName = config.icon.name.android;
+    const iosIconName = config.icon.name.ios;
+    const androidSplashName = config.splash.name.android;
+    const iosSplashName = config.splash.name.ios;
     const storyboardName = 'LaunchScreen';
-    const iosIconPadding = 0.16;
-    const iosSplashPadding = 0.16;
-    const androidAdaptivePadding = 0.16;
-    const androidLegacyIconPadding = 0.10;
 
     async function generateIosIcons() {
         const iconContents = useIosContentsJson(path.join(iosAssetsFolder, `${iosIconName}.appiconset/Contents.json`));
@@ -58,7 +54,7 @@ export function useImageGenerator(config: FluttergenConfig) {
                 width: t.size * t.scale,
                 height: t.size * t.scale,
                 outputPath: path.join(iosAssetsFolder, `${iosIconName}.appiconset`, fileName),
-                padding: iosIconPadding,
+                padding: config.icon.padding.ios,
                 grayscale: t.suffix === '-monochrome' ? true : undefined,
             });
             iconContents.add(t.idiom, `${t.size}x${t.size}`, `${t.scale}x`, fileName, t.appearances);
@@ -126,11 +122,11 @@ export function useImageGenerator(config: FluttergenConfig) {
         let width1x, height1x;
         // iphone7,8,SE: 375x667 pt
         if (imgMeta.width >= imgMeta.height) {
-            const wScale = storyboardWidth * (1 - iosSplashPadding) / imgMeta.width;
+            const wScale = storyboardWidth * (1 - config.splash.padding.ios) / imgMeta.width;
             width1x = Math.floor(wScale * imgMeta.width);
             height1x = Math.floor(wScale * imgMeta.height);
         } else {
-            const hScale = storyboardHeight * (1 - iosSplashPadding) / imgMeta.height;
+            const hScale = storyboardHeight * (1 - config.splash.padding.ios) / imgMeta.height;
             width1x = Math.floor(hScale * imgMeta.width);
             height1x = Math.floor(hScale * imgMeta.height);
         }
@@ -195,7 +191,7 @@ export function useImageGenerator(config: FluttergenConfig) {
             .replaceAll('{IMAGE-WIDTH}', width1x.toString())
             .replaceAll('{IMAGE-HEIGHT}', height1x.toString())
             .replaceAll('{COLOR-VAR}', `${iosSplashName}BackColor`)
-            .replaceAll('{CONTENT-WEIGHT}', (1 - 2 * iosSplashPadding).toString())
+            .replaceAll('{CONTENT-WEIGHT}', (1 - 2 * config.splash.padding.ios).toString())
 
         const outputPath = `./ios/Runner/Base.lproj/${storyboardName}.storyboard`;
         fs.mkdirSync(path.dirname(outputPath), {recursive: true});
@@ -223,18 +219,17 @@ export function useImageGenerator(config: FluttergenConfig) {
                 width: asIs ? scale : Math.round(48 * scale),
                 height: asIs ? scale : Math.round(48 * scale),
                 outputPath: asIs ? folder : `${androidResFolder}/mipmap-${folder}/${androidIconName}.png`,
-                padding: androidLegacyIconPadding,
+                padding: config.icon.padding.android,
             });
         }
         console.log("- Android icons (mipmap/*) generated.");
 
+        // ADAPTIVE ICONS
         const rgb = colorConverter.anyToRgba(config.icon.bgColor.light) || transparentRgb;
         const rgbDark = colorConverter.anyToRgba(config.icon.bgColor.dark) || transparentRgb;
         await ensureColorResource('values', `${androidIconName}_background`, colorConverter.rgbaToHex(rgb).substring(0, 7));
         await ensureColorResource('values-night', `${androidIconName}_background`, colorConverter.rgbaToHex(rgbDark).substring(0, 7));
 
-        // 2. Create the ${androidIconName}_background.xml drawable that references the color resource.
-        //    This is needed for the <background> tag in ${androidIconName}.xml to be a color, not a PNG bitmap.
         const bgDrawablePath = path.join(androidResFolder, 'drawable', `${androidIconName}_background.xml`);
         fs.mkdirSync(path.dirname(bgDrawablePath), {recursive: true});
         const bgDrawableContent =
@@ -244,7 +239,6 @@ export function useImageGenerator(config: FluttergenConfig) {
             `</shape>`;
         fs.writeFileSync(bgDrawablePath, bgDrawableContent);
 
-        // 3. Loop through sizes to generate foreground PNGs (background PNG is NOT needed now).
         const adaptiveConfigs = [
             [108, `${androidResFolder}/mipmap-mdpi/[NAME]`],
             [162, `${androidResFolder}/mipmap-hdpi/[NAME]`],
@@ -253,13 +247,17 @@ export function useImageGenerator(config: FluttergenConfig) {
             [432, `${androidResFolder}/mipmap-xxxhdpi/[NAME]`],
         ] as const;
         for (const [size, outputPathTemplate] of adaptiveConfigs) {
+            // full: 108
+            // safe: 66
+            const safeWidth = size * 66 / 108;
+            const paddingWeight = (safeWidth * config.icon.padding.android + (size - safeWidth) / 2) / size;
             await resizeImage({
                 borderRadius: config.icon.borderRadius,
                 inputPath: config.icon.path.light,
                 width: size,
                 height: size,
                 outputPath: outputPathTemplate.replace('[NAME]', androidIconName + '_foreground.png'),
-                padding: androidAdaptivePadding,
+                padding: paddingWeight,
                 transparent: true,
                 bgColor: undefined,
             });
@@ -270,7 +268,7 @@ export function useImageGenerator(config: FluttergenConfig) {
                 width: size,
                 height: size,
                 outputPath: outputPathTemplate.replace('[NAME]', androidIconName + '_monochrome.png'),
-                padding: androidAdaptivePadding,
+                padding: paddingWeight,
                 transparent: true,
                 grayscale: true,
                 bgColor: undefined,
@@ -400,7 +398,7 @@ export function useImageGenerator(config: FluttergenConfig) {
             width: 432,
             height: 432,
             outputPath: path.join(drawableFolder, `${androidSplashName}_12.png`),
-            padding: androidAdaptivePadding,
+            padding: config.splash.padding.android,
             transparent: true,
             bgColor: undefined,
         });
