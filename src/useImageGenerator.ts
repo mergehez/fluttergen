@@ -20,6 +20,17 @@ function ensureNoExtension(filePath: string): string {
     return parts.join('.');
 }
 
+function getEnsuredPath(...paths: string[]) {
+    const res = path.join(...paths);
+    fs.mkdirSync(path.dirname(res), {recursive: true});
+    return res;
+}
+
+function writeFileSync(filePath: string, content: string) {
+    getEnsuredPath(filePath);
+    fs.writeFileSync(filePath, content);
+}
+
 export function useImageGenerator(config: FluttergenConfig) {
     // console.log("Generating icons and splash with config:", config);
     const androidResFolder = "./android/app/src/main/res";
@@ -181,8 +192,7 @@ export function useImageGenerator(config: FluttergenConfig) {
             ],
             "info": {"author": "fluttergen", "version": 1}
         }
-        fs.mkdirSync(`./ios/Runner/Assets.xcassets/${iosSplashName}BackColor.colorset`, {recursive: true});
-        fs.writeFileSync(`./ios/Runner/Assets.xcassets/${iosSplashName}BackColor.colorset/Contents.json`, JSON.stringify(colorAsset, null, 2));
+        writeFileSync(`./ios/Runner/Assets.xcassets/${iosSplashName}BackColor.colorset/Contents.json`, JSON.stringify(colorAsset, null, 2));
         console.log(`- iOS splash background color asset (${iosSplashName}BackColor) generated.`);
 
         // @ts-ignore
@@ -193,9 +203,7 @@ export function useImageGenerator(config: FluttergenConfig) {
             .replaceAll('{COLOR-VAR}', `${iosSplashName}BackColor`)
             .replaceAll('{CONTENT-WEIGHT}', (1 - 2 * config.splash.padding.ios).toString())
 
-        const outputPath = `./ios/Runner/Base.lproj/${storyboardName}.storyboard`;
-        fs.mkdirSync(path.dirname(outputPath), {recursive: true});
-        fs.writeFileSync(outputPath, splashContent);
+        writeFileSync(`./ios/Runner/Base.lproj/${storyboardName}.storyboard`, splashContent);
         console.log(`- iOS splash storyboard (${storyboardName}.storyboard) generated.`);
 
         const plist = useInfoPlist('./ios/Runner/Info.plist');
@@ -203,6 +211,47 @@ export function useImageGenerator(config: FluttergenConfig) {
     }
 
     async function generateAndroidIcons() {
+        // Helper function for generating adaptive icon foregrounds/monochromes
+        const generateAdaptiveIconForMode = async (mode: 'light' | 'dark', drawableFolder: string) => {
+            // 1. Determine the correct image path based on the mode
+            const inputPath = mode === 'dark' ? config.icon.path.dark : config.icon.path.light;
+
+            // Use XXXHDPI size (432px) as the base for high-quality adaptive drawables
+            const size = 432;
+            const paddingWeight = (size * 66 / 108 * config.icon.padding.android + (size - size * 66 / 108) / 2) / size;
+
+            console.log(`- Generating ${mode} adaptive icon foreground to ${drawableFolder}/`);
+
+            // --- Generate Foreground (colored) ---
+            await resizeImage({
+                borderRadius: config.icon.borderRadius,
+                inputPath: inputPath,
+                width: size,
+                height: size,
+                outputPath: path.join(androidResFolder, drawableFolder, `${androidIconName}_foreground.png`),
+                padding: paddingWeight,
+                transparent: true,
+                bgColor: undefined,
+            });
+
+            // --- Generate Monochrome (grayscale) ---
+            await resizeImage({
+                borderRadius: config.icon.borderRadius,
+                inputPath: inputPath,
+                width: size,
+                height: size,
+                outputPath: path.join(androidResFolder, drawableFolder, `${androidIconName}_monochrome.png`),
+                padding: paddingWeight,
+                transparent: true,
+                grayscale: true,
+                bgColor: undefined,
+            });
+        };
+
+        // ------------------------------------------------
+        // 1. LEGACY ICONS (Non-Adaptive, Mipmap folders)
+        // ------------------------------------------------
+
         const mipmapScales = {
             'mdpi': 1,
             'hdpi': 1.5,
@@ -210,6 +259,7 @@ export function useImageGenerator(config: FluttergenConfig) {
             'xxhdpi': 3,
             'xxxhdpi': 4,
         } as const;
+
         for (const [folder, scale] of Object.entries({...mipmapScales, './assets/icon-512x512.png': 512})) {
             const asIs = scale == 512;
             await resizeImage({
@@ -222,95 +272,74 @@ export function useImageGenerator(config: FluttergenConfig) {
                 padding: config.icon.padding.android,
             });
         }
-        console.log("- Android icons (mipmap/*) generated.");
+        console.log("- Android legacy icons (mipmap/*) generated.");
 
-        // ADAPTIVE ICONS
+        // ------------------------------------------------
+        // 2. ADAPTIVE ICON BACKGROUND COLORS (Light/Dark Mode)
+        // ------------------------------------------------
+
         const rgb = colorConverter.anyToRgba(config.icon.bgColor.light) || transparentRgb;
         const rgbDark = colorConverter.anyToRgba(config.icon.bgColor.dark) || transparentRgb;
+
+        // Define color resources for light and dark mode backgrounds
         await ensureColorResource('values', `${androidIconName}_background`, colorConverter.rgbaToHex(rgb).substring(0, 7));
         await ensureColorResource('values-night', `${androidIconName}_background`, colorConverter.rgbaToHex(rgbDark).substring(0, 7));
 
-        const bgDrawablePath = path.join(androidResFolder, 'drawable', `${androidIconName}_background.xml`);
-        fs.mkdirSync(path.dirname(bgDrawablePath), {recursive: true});
+        // Create a simple XML shape drawable for the background color (references the color resource)
         const bgDrawableContent =
             `<?xml version="1.0" encoding="utf-8"?>\n` +
             `<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">\n` +
             `\t<solid android:color="@color/${androidIconName}_background"/>\n` +
             `</shape>`;
-        fs.writeFileSync(bgDrawablePath, bgDrawableContent);
+        writeFileSync(getEnsuredPath(androidResFolder, 'drawable', `${androidIconName}_background.xml`), bgDrawableContent);
 
-        const adaptiveConfigs = [
-            [108, `${androidResFolder}/mipmap-mdpi/[NAME]`],
-            [162, `${androidResFolder}/mipmap-hdpi/[NAME]`],
-            [216, `${androidResFolder}/mipmap-xhdpi/[NAME]`],
-            [324, `${androidResFolder}/mipmap-xxhdpi/[NAME]`],
-            [432, `${androidResFolder}/mipmap-xxxhdpi/[NAME]`],
-        ] as const;
-        for (const [size, outputPathTemplate] of adaptiveConfigs) {
-            // full: 108
-            // safe: 66
-            const safeWidth = size * 66 / 108;
-            const paddingWeight = (safeWidth * config.icon.padding.android + (size - safeWidth) / 2) / size;
-            await resizeImage({
-                borderRadius: config.icon.borderRadius,
-                inputPath: config.icon.path.light,
-                width: size,
-                height: size,
-                outputPath: outputPathTemplate.replace('[NAME]', androidIconName + '_foreground.png'),
-                padding: paddingWeight,
-                transparent: true,
-                bgColor: undefined,
-            });
+        // ------------------------------------------------
+        // 3. ADAPTIVE ICON FOREGROUND (Light/Dark Images)
+        // ------------------------------------------------
 
-            await resizeImage({
-                borderRadius: config.icon.borderRadius,
-                inputPath: config.icon.path.light,
-                width: size,
-                height: size,
-                outputPath: outputPathTemplate.replace('[NAME]', androidIconName + '_monochrome.png'),
-                padding: paddingWeight,
-                transparent: true,
-                grayscale: true,
-                bgColor: undefined,
-            });
-        }
+        // Process Light Mode Foreground/Monochrome (to default 'drawable' folder)
+        await generateAdaptiveIconForMode('light', 'drawable');
 
-        // 4. Create mipmap-anydpi-v26/ic_launcher.xml
-        const anydpiV26Path = path.join(androidResFolder, 'mipmap-anydpi-v26', `${androidIconName}.xml`);
-        fs.mkdirSync(path.dirname(anydpiV26Path), {recursive: true});
+        // Process Dark Mode Foreground/Monochrome (to 'drawable-night' folder)
+        getEnsuredPath(androidResFolder, 'drawable-night')
+        await generateAdaptiveIconForMode('dark', 'drawable-night');
+
+        // ------------------------------------------------
+        // 4. ADAPTIVE ICON XML DEFINITION (API 26+)
+        // ------------------------------------------------
+
+        // IMPORTANT: Reference @drawable/ for the foreground/monochrome to enable theme swapping
         const anydpiV26Content = `<?xml version="1.0" encoding="utf-8"?>\n` +
             `<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">\n` +
             `\t<background android:drawable="@drawable/${androidIconName}_background"/>\n` +
-            `\t<foreground android:drawable="@mipmap/${androidIconName}_foreground"/>\n` +
-            `\t<monochrome android:drawable="@mipmap/${androidIconName}_monochrome"/>\n` +
+            `\t<foreground android:drawable="@drawable/${androidIconName}_foreground"/>\n` +
+            `\t<monochrome android:drawable="@drawable/${androidIconName}_monochrome"/>\n` +
             `</adaptive-icon>`;
-        fs.writeFileSync(anydpiV26Path, anydpiV26Content);
+        writeFileSync(path.join(androidResFolder, 'mipmap-anydpi-v26', `${androidIconName}.xml`), anydpiV26Content);
 
         console.log("- Android adaptive icons generated.");
+
+        // ------------------------------------------------
+        // 5. NOTIFICATION ICONS
+        // ------------------------------------------------
 
         const notificationColorName = 'notification_accent_color';
         const notificationIconName = config.notificationIcon !== false
             ? ensureNoExtension(config.icon.name.android || 'ic').replace('_launcher', '') + '_notification'
             : undefined;
 
-        if (config.notificationIcon !== false) {
+        if (config.notificationIcon !== false && config.notificationIcon.path) {
             await ensureColorResource('values', notificationColorName, '#ffffff');
 
-            // 3. Generate Image for each density
+            // Generate Image for each density
             for (const [folder, scale] of Object.entries(mipmapScales)) {
-                const mipmapFolder = path.join(androidResFolder, `mipmap-${folder}`);
-                fs.mkdirSync(mipmapFolder, {recursive: true});
-
-                const CANVAS_DP = 32;
-                const CONTENT_DP = 24;
-                // Calculate size based on the content area (24dp)
-                const contentSizePx = CONTENT_DP * scale;
+                const mipmapFolder = getEnsuredPath(androidResFolder, `mipmap-${folder}`);
 
                 await resizeImage({
                     borderRadius: 0,
                     inputPath: config.notificationIcon.path,
-                    width: contentSizePx,
-                    height: contentSizePx,
+                    width: 24 * scale,
+                    height: 24 * scale,
                     outputPath: path.join(mipmapFolder, `${notificationIconName}.png`),
                     padding: config.notificationIcon.padding ?? 0,
                     bgColor: undefined,
@@ -319,7 +348,13 @@ export function useImageGenerator(config: FluttergenConfig) {
                 });
             }
             console.log(`- Android notification icons (${notificationIconName}) generated.`);
+        } else {
+            console.log("- Android notification icon generation skipped as per configuration.");
         }
+
+        // ------------------------------------------------
+        // 6. MANIFEST UPDATE
+        // ------------------------------------------------
 
         const manifest = useAndroidManifest();
         if (manifest) {
@@ -327,89 +362,40 @@ export function useImageGenerator(config: FluttergenConfig) {
             if (config.notificationIcon !== false) {
                 manifest.updateOrCreateMetaData('com.google.firebase.messaging.default_notification_icon', `@mipmap/${notificationIconName}`);
                 manifest.updateOrCreateMetaData('com.google.firebase.messaging.default_notification_color', `@color/${notificationColorName}`);
-            } else {
-                console.log("- Android notification icon generation skipped as per configuration.");
             }
             console.log("- AndroidManifest.xml updated for icons.");
         }
     }
 
     async function generateAndroidSplashScreen() {
-        const cfgStyles = {
-            'values': {
-                // @ts-ignore
-                stub: (await import("./stub/styles.txt")).default,
-                attrs: [
-                    ['android:windowBackground', `@drawable/${androidSplashName}_light`, true]
-                ],
-            },
-            'values-night': {
-                // @ts-ignore
-                stub: (await import("./stub/styles-night.txt")).default,
-                attrs: [
-                    ['android:windowBackground', `@drawable/${androidSplashName}_dark`, true]
-                ],
-            },
-            'values-v31': {
-                // @ts-ignore
-                stub: (await import("./stub/styles-v31.txt")).default,
-                attrs: [
-                    ['android:windowSplashScreenAnimatedIcon', `@drawable/${androidSplashName}_12`, true],
-                    ['android:windowSplashScreenBackground', `@color/${androidSplashName}_color`, false],
-                ],
-            },
-        } as const;
-
-        for (const [folder, {stub, attrs}] of Object.entries(cfgStyles)) {
-            const stylesXmlPath = path.join(`./android/app/src/main/res/${folder}/styles.xml`);
-            fs.mkdirSync(path.dirname(stylesXmlPath), {recursive: true});
-            if (!fs.existsSync(stylesXmlPath)) {
-                fs.writeFileSync(stylesXmlPath, stub);
-            }
-            let content = fs.readFileSync(stylesXmlPath, 'utf-8');
-
-            for (const attr of attrs) {
-                const [name, value, required] = attr;
-                //TODO: find a better library to preserve comments!
-                const [parsed, xmlBuilder] = await useXmlParser(content);
-                const styles = ensureArr(parsed.resources.style);
-                for (const style of styles) {
-                    const items = ensureArr(style.item);
-
-                    const index = items.findIndex((item: any) => item.$.name === name);
-                    if (index !== -1) {
-                        items[index]._ = value;
-                    } else if (required) {
-                        items.push({_: value, $: {name: name}});
-                    }
-                }
-                content = xmlBuilder(parsed);
-            }
-            fs.writeFileSync(stylesXmlPath, content);
+        const valuesStyle = {
+            // @ts-ignore
+            light: useStylesXml('values', (await import("./stub/styles.txt")).default),
+            // @ts-ignore
+            dark: useStylesXml('values-night', (await import("./stub/styles-night.txt")).default),
+        };
+        const valuesV31Style = {
+            // @ts-ignore
+            light: useStylesXml('values-v31', (await import("./stub/styles-v31.txt")).default),
+            // @ts-ignore
+            dark: useStylesXml('values-night-v31', (await import("./stub/styles-v31.txt")).default)
         }
-        console.log("- Android styles.xml updated for splash screens.");
 
-        const drawableFolder = path.join(androidResFolder, 'drawable');
-        fs.mkdirSync(drawableFolder, {recursive: true});
+        console.log("- Android styles.xml files updated for splash screens.");
 
-        await resizeImage({
-            borderRadius: config.splash.borderRadius,
-            inputPath: config.splash.path.light,
-            width: 432,
-            height: 432,
-            outputPath: path.join(drawableFolder, `${androidSplashName}_12.png`),
-            padding: config.splash.padding.android,
-            transparent: true,
-            bgColor: undefined,
-        });
-        console.log(`- Android v31 splash animated icon (drawable/${androidSplashName}_12.png) generated.`);
+        const createDrawableXml = (drawableName: string) => `<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <bitmap 
+            android:gravity="center"
+            android:src="${drawableName}" />
+    </item>
+</layer-list>`;
 
         const rgb = colorConverter.rgbaToHex(colorConverter.anyToRgba(config.splash.bgColor.light), '#FFFFFF');
         const rgbDark = colorConverter.rgbaToHex(colorConverter.anyToRgba(config.splash.bgColor.dark), '#000000');
-        const modes = ['light', 'dark'] as const;
-        for (const mode of modes) {
+        for (const mode of ['light', 'dark'] as const) {
             await ensureColorResource(mode == 'dark' ? 'values-night' : 'values', `${androidSplashName}_color`, mode == 'dark' ? rgbDark : rgb);
-
             const imgMeta = await sharp(config.splash.path[mode]).metadata();
             if (!imgMeta.width || !imgMeta.height) {
                 throw new Error("Could not get image dimensions for Android splash screen.");
@@ -419,36 +405,59 @@ export function useImageGenerator(config: FluttergenConfig) {
             const targetSizePx = targetSizeDp * targetScale;
             const aspectRatio = imgMeta.width / imgMeta.height;
 
-            await resizeImage({
+            const drawableFolder = mode == 'dark' ? 'drawable-night' : 'drawable';
+
+            const cfg = {
                 borderRadius: config.splash.borderRadius,
                 inputPath: config.splash.path[mode],
                 width: aspectRatio >= 1 ? targetSizePx : Math.round(targetSizePx * aspectRatio),
                 height: aspectRatio < 1 ? targetSizePx : Math.round(targetSizePx / aspectRatio),
-                outputPath: path.join(drawableFolder, `${androidSplashName}_${mode}.png`),
+                outputPath: path.join(androidResFolder, drawableFolder, `${androidSplashName}_image.png`),
                 padding: 0, // CRUCIAL: Remove padding from the PNG
                 transparent: true,
                 bgColor: undefined,
-            });
-            console.log(`- Android ${mode} splash logo (drawable/${androidSplashName}_${mode}.png) generated.`);
+            } as const;
+            await resizeImage(cfg);
+            console.log(`- Android ${mode} splash logo (${drawableFolder}/${androidSplashName}_image.png) generated.`);
 
-            const paddingDp = 100;
-            const splashXmlPath = path.join(drawableFolder, `${androidSplashName}_${mode}_xml.xml`);
-            fs.writeFileSync(splashXmlPath, `<?xml version="1.0" encoding="utf-8"?>
-<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- 1. Background color defined in colors.xml -->
-    <item android:drawable="@color/${androidSplashName}_color" />
+            writeFileSync(path.join(androidResFolder, drawableFolder, `${androidSplashName}.xml`), createDrawableXml(`@drawable/${androidSplashName}_image`));
+            console.log(`- Android ${mode} splash drawable XML (drawable/${androidSplashName}.xml) generated.`);
 
-    <!-- 2. Centered logo with padding to ensure it's not glued to the edges -->
-    <item android:top="${paddingDp}dp" 
-          android:bottom="${paddingDp}dp" 
-          android:left="${paddingDp}dp" 
-          android:right="${paddingDp}dp">
-        <bitmap 
-            android:gravity="center"
-            android:src="@drawable/${androidSplashName}_${mode}" />
-    </item>
-</layer-list>`);
-            console.log(`- Android ${mode} splash drawable XML (drawable/${androidSplashName}_${mode}.xml) generated.`);
+            await valuesStyle[mode].ensureAttribute('android:windowBackground', `@drawable/${androidSplashName}`);
+
+            const useIconAsFallback = aspectRatio != 1;
+            if (useIconAsFallback)
+                console.log(`- Android ${mode} splash logo for v31: using icon image as fallback because splash image is not square.`);
+            await valuesV31Style[mode].ensureAttribute('android:windowSplashScreenAnimatedIcon', useIconAsFallback ? `@mipmap/${androidIconName}` : `@drawable/${androidSplashName}_image`);
+            await valuesV31Style[mode].ensureAttribute('android:windowSplashScreenBackground', `@color/${androidSplashName}_color`);
+        }
+    }
+
+    function useStylesXml(folder: string, stubContent: string) {
+        const stylesXmlPath = getEnsuredPath(`./android/app/src/main/res/${folder}/styles.xml`);
+        if (!fs.existsSync(stylesXmlPath)) {
+            fs.writeFileSync(stylesXmlPath, stubContent);
+        }
+
+        return {
+            ensureAttribute: async (name: string, value: string, required: boolean = true) => {
+                let content = fs.readFileSync(stylesXmlPath, 'utf-8');
+                const [parsed, xmlBuilder] = await useXmlParser(content);
+                const styles = ensureArr(parsed.resources.style);
+                for (const style of styles) {
+                    if (style.$.name !== 'LaunchTheme')
+                        continue;
+                    const items = ensureArr(style.item);
+
+                    const index = items.findIndex((item: any) => item.$.name === name);
+                    if (index !== -1) {
+                        items[index]._ = value;
+                    } else if (required) {
+                        items.push({_: value, $: {name: name}});
+                    }
+                }
+                fs.writeFileSync(stylesXmlPath, xmlBuilder(parsed));
+            }
         }
     }
 
@@ -472,7 +481,7 @@ export function useImageGenerator(config: FluttergenConfig) {
             ? transparentRgb
             : colorConverter.anyToRgba(opts.bgColor) || transparentRgb;
 
-        fs.mkdirSync(path.dirname(outputPath), {recursive: true});
+        getEnsuredPath(outputPath);
 
         const padX = Math.floor(fullWidth * padding);
         const padY = Math.floor(fullHeight * padding);
@@ -531,8 +540,7 @@ export function useImageGenerator(config: FluttergenConfig) {
 
 
     async function ensureColorResource(folder: 'values' | 'values-night', colorName: string, hexValue: string) {
-        const colorsXmlPath = path.join(androidResFolder, folder, 'colors.xml');
-        fs.mkdirSync(path.dirname(colorsXmlPath), {recursive: true});
+        const colorsXmlPath = getEnsuredPath(androidResFolder, folder, 'colors.xml');
 
         if (!fs.existsSync(colorsXmlPath)) {
             fs.writeFileSync(colorsXmlPath, `<?xml version="1.0" encoding="utf-8"?>\n<resources>\n<color name="${colorName}">${hexValue}</color>\n</resources>`);

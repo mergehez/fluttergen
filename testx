@@ -10,6 +10,7 @@ fs.copyFileSync('./dist/index.cjs', './aa/index.cjs');
 fs.copyFileSync('./pubspec.yaml', './aa/pubspec.yaml');
 fs.copyFileSync('./manifest.xml', './aa/android/app/src/main/AndroidManifest.xml');
 fs.cpSync('./assets', './aa/assets', {recursive: true});
+execSync('cd aa/android/app/src/main && rm -rf res', {stdio: 'inherit'});
 execSync('cd aa && bun run index.cjs', {stdio: 'inherit'});
 
 const runIndex = process.argv.findIndex(t => t == '-r' || t.startsWith('-r='));
