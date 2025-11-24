@@ -6,11 +6,31 @@ import {useNamer} from "./useNamer.ts";
 import fs from "fs";
 import path from "path";
 
-if (process.argv.includes('--version') || process.argv.includes('-v')) {
+function currentVersion() {
     const pkgPath = path.join(__dirname, '../package.json');
     const pkg = fs.readFileSync(pkgPath);
     const packageJson = JSON.parse(pkg.toString());
-    console.log(`fluttergen version ${packageJson.version}`);
+    return packageJson.version;
+}
+
+async function warnIfNewerVersionAvailable() {
+    const curr = currentVersion();
+    try {
+        const res = await fetch('https://registry.npmjs.org/fluttergen/latest');
+        const data = await res.json();
+        const latest = data.version;
+        if (latest !== curr) {
+            console.log();
+            console.warn(`A newer version of fluttergen is available (${latest}). You are using version ${curr}. Consider updating to the latest version.`);
+        }
+    } catch (err) {
+        // Ignore errors
+    }
+}
+
+if (process.argv.includes('--version') || process.argv.includes('-v')) {
+    console.log(`fluttergen current version ${currentVersion()}`);
+    await warnIfNewerVersionAvailable();
     process.exit(0);
 }
 
@@ -28,6 +48,9 @@ async function main() {
     } else {
         console.log("No renaming configuration found, skipping renaming step.");
     }
+
+    await warnIfNewerVersionAvailable();
+    process.exit(0);
 }
 
 main().catch(e => {
