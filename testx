@@ -11,3 +11,17 @@ fs.copyFileSync('./pubspec.yaml', './aa/pubspec.yaml');
 fs.copyFileSync('./manifest.xml', './aa/android/app/src/main/AndroidManifest.xml');
 fs.cpSync('./assets', './aa/assets', {recursive: true});
 execSync('cd aa && bun run index.cjs', {stdio: 'inherit'});
+
+const runIndex = process.argv.findIndex(t => t == '-r' || t.startsWith('-r='));
+if (runIndex !== -1) {
+    const val = process.argv[runIndex].includes('=') ? process.argv[runIndex].split('=')[1] : process.argv[runIndex + 1];
+    if (val == 'a' || val == 'i') {
+        const devices = execSync('cd aa && flutter devices --device-connection=attached').toString().split('\n');
+        for (const device of devices) {
+            if ((val == 'a' && device.includes('android-arm64')) || (val == 'i' && device.includes('ios'))) {
+                const deviceId = device.split('•')[1].trim();
+                execSync(`cd aa && flutter run -d ${deviceId}`, {stdio: 'inherit'});
+            }
+        }
+    }
+}
