@@ -29,9 +29,14 @@ async function warnIfNewerVersionAvailable() {
 }
 
 if (process.argv.includes('--version') || process.argv.includes('-v')) {
-    console.log(`fluttergen current version ${currentVersion()}`);
-    await warnIfNewerVersionAvailable();
-    process.exit(0);
+    (async () => {
+        console.log(`fluttergen current version ${currentVersion()}`);
+        await warnIfNewerVersionAvailable();
+        process.exit(0);
+    })().catch(e => {
+        console.error("Error during execution:", e);
+        process.exit(1);
+    });
 }
 
 async function main() {
