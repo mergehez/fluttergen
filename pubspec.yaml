@@ -18,15 +18,15 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 
-
 fluttergen:
   rename:
     appName: Peyvdank
     bundleIdentifier: com.peyvdank.ios
     applicationId: com.peyvdank.android
   icon:
-    androidName: my_icon
-    iosName: MyIcon
+    name:
+      android: my_icon
+      ios: MyIcon
     path: assets/icon_transparent.png
     bgColor: '#018290'
     borderRadius: 0.2
@@ -34,9 +34,11 @@ fluttergen:
   notificationIcon:
     padding: 0.1
   splash:
-    androidName: my_splash
-    iosName: MySplash
+    name:
+      android: my_splash
+      ios: MySplash
     path: assets/icon_with_title.png
-    bgColor: '#00636E'
-    bgColorDark: '#00636E'
+    bgColor:
+      light: '#00636E'
+      dark: '#00636E'
     padding: 0.1

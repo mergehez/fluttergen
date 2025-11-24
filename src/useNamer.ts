@@ -18,12 +18,6 @@ export function useNamer(config: RenameConfig) {
     }
 
     function updateBundleIdentifier() {
-        const manifest = useAndroidManifest();
-        if (manifest) {
-            manifest.ensureAttribute('manifest', 'package', config.applicationId);
-            console.log(`- Android Manifest Package updated to ${config.applicationId}`);
-        }
-
         // 2. Update build.gradle applicationId
         const buildGradlePaths = ['./android/app/build.gradle', './android/app/build.gradle.kts'];
         const regex = /applicationId[\s:]*"[^"]+"/g;
