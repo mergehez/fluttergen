@@ -30,6 +30,8 @@ fluttergen:
     path: assets/icon_transparent.png
     bgColor: '#018290'
     borderRadius: 0.2
+  notificationIcon:
+    padding: 0.1
   splash:
     androidName: my_splash
     iosName: MySplash

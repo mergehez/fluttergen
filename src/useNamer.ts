@@ -1,9 +1,9 @@
-import {YamlRenameConfig} from "./yaml_parser.ts";
+import {RenameConfig} from "./yaml_parser.ts";
 import {useAndroidManifest} from "./useAndroidManifest.ts";
 import {useInfoPlist} from "./useInfoPlist.ts";
 import fs from 'fs';
 
-export function useNamer(config: YamlRenameConfig) {
+export function useNamer(config: RenameConfig) {
     function updateName() {
         const manifest = useAndroidManifest();
         if (manifest) {

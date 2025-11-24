@@ -2,7 +2,7 @@ import colorNames from "color-name";
 import colorConvert from "color-convert";
 
 export type RgbObject = { r: number, g: number, b: number, alpha: number };
-
+export const transparentRgb: RgbObject = {r: 0, g: 0, b: 0, alpha: 0};
 export const colorConverter = {
     anyToRgba(color: string | undefined): RgbObject | undefined {
         color = color?.replaceAll(' ', '').toLowerCase();
@@ -50,7 +50,10 @@ export const colorConverter = {
         // Invalid Hex string
         throw new Error(`Invalid Hex color string: ${str}`);
     },
-    rgbaToHex(rgba: RgbObject): string {
+    rgbaToHex(rgba: RgbObject | undefined, fallback: `#${string}` = '#00000000'): `#${string}` {
+        if (!rgba) {
+            return fallback;
+        }
         const toHex = (value: number): string => {
             const hex = value.toString(16).toUpperCase();
             return hex.length === 1 ? '0' + hex : hex;
