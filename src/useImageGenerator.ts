@@ -213,17 +213,16 @@ export function useImageGenerator(config: FluttergenConfig) {
             'xhdpi': 2,
             'xxhdpi': 3,
             'xxxhdpi': 4,
-            './assets/icon-512x512.png': 512,
         } as const;
         for (const [folder, scale] of Object.entries({...mipmapScales, './assets/icon-512x512.png': 512})) {
-            const asIs = folder.startsWith('.');
+            const asIs = scale == 512;
             await resizeImage({
                 borderRadius: config.icon.borderRadius,
                 inputPath: config.icon.path.light,
                 bgColor: config.icon.bgColor.light,
                 width: asIs ? scale : Math.round(48 * scale),
                 height: asIs ? scale : Math.round(48 * scale),
-                outputPath: asIs ? folder : `${androidResFolder}/mipmap-mdpi/${androidIconName}.png`,
+                outputPath: asIs ? folder : `${androidResFolder}/mipmap-${folder}/${androidIconName}.png`,
                 padding: androidLegacyIconPadding,
             });
         }
