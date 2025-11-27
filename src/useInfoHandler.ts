@@ -15,10 +15,6 @@ export function useInfoHandler(config: AppInfoConfig) {
             }
 
             // update app name in Info.plist
-            const appFramework = usePlist('./ios/Flutter/AppFrameworkInfo.plist');
-            appFramework.set('CFBundleName', 'string', config.appName);
-            console.log(`- iOS App Name in AppFrameworkInfo.plist updated to ${config.appName}`);
-
             const plist = usePlist('./ios/Runner/Info.plist');
             plist.set('CFBundleDisplayName', 'string', config.appName);
             plist.set('CFBundleName', 'string', config.appName);
@@ -29,7 +25,6 @@ export function useInfoHandler(config: AppInfoConfig) {
             buildGradle.update('applicationId', config.applicationId, 'string');
 
             // Update bundle identifier in iOS project.pbxproj
-            appFramework.set('CFBundleIdentifier', 'string', config.bundleIdentifier);
             replaceInFile(
                 './ios/Runner.xcodeproj/project.pbxproj',
                 new RegExp(`(PRODUCT_BUNDLE_IDENTIFIER) = [^;]+;`, 'g'),
@@ -47,7 +42,6 @@ export function useInfoHandler(config: AppInfoConfig) {
             }
 
             if (config.iosMinVersion) {
-                appFramework.set('MinimumOSVersion', 'string', config.iosMinVersion);
                 replaceInFile(
                     './ios/Runner.xcodeproj/project.pbxproj',
                     new RegExp(`(IPHONEOS_DEPLOYMENT_TARGET) = [^;]+;`, 'g'),
