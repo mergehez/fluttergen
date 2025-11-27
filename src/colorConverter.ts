@@ -1,5 +1,6 @@
 import colorNames from "color-name";
 import colorConvert from "color-convert";
+import {KnownError} from "./knownError.ts";
 
 export type RgbObject = { r: number, g: number, b: number, alpha: number };
 export const transparentRgb: RgbObject = {r: 0, g: 0, b: 0, alpha: 0};
@@ -27,7 +28,7 @@ export const colorConverter = {
             return colorConverter.hslaToRgba(color);
         }
 
-        throw new Error(`Unsupported color format: ${color}. only hex, rgb(a) and hsl(a) are supported.`);
+        throw new KnownError(`Unsupported color format: ${color}. only hex, rgb(a) and hsl(a) are supported.`);
     },
 
     hexToRgba(str: string): RgbObject {
@@ -48,7 +49,7 @@ export const colorConverter = {
             return {r, g, b, alpha: 1};
         }
         // Invalid Hex string
-        throw new Error(`Invalid Hex color string: ${str}`);
+        throw new KnownError(`Invalid Hex color string: ${str}`);
     },
     rgbaToHex(rgba: RgbObject | undefined, fallback: `#${string}` = '#00000000'): `#${string}` {
         if (!rgba) {
@@ -72,7 +73,7 @@ export const colorConverter = {
         const match = str.match(/hsla?\(\s*(\d+\.?\d*|\.\d+)\s*,\s*(\d+\.?\d*|\.\d+)%\s*,\s*(\d+\.?\d*|\.\d+)%\s*(?:,\s*(\d+\.?\d*|\.\d+)\s*)?\)/i);
 
         if (!match) {
-            throw new Error(`Invalid HSLA color string: ${str}`);
+            throw new KnownError(`Invalid HSLA color string: ${str}`);
         }
 
         // 2. Assign and normalize H, S, L, A.

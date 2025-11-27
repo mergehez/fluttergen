@@ -9,7 +9,7 @@ const pkg = JSON.parse(fs.readFileSync(new URL('./package.json', import.meta.url
 
 esbuild.build({
     bundle: true,
-    minify: false,
+    minify: false, // never set to true, because it breaks the method 'printAvailableAutomationActions' in useAutomation.ts
     platform: 'node',
     format: 'cjs',
     target: 'node16',

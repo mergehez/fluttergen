@@ -26,5 +26,4 @@ dist-ssr
 # custom additions
 aa/
 assets/icon-512x512.png
-assets/manifest.xml
 .env

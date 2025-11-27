@@ -3,12 +3,13 @@
 import fs from "fs";
 import path from "path";
 import sharp from "sharp";
-import {FluttergenConfig} from "./yaml_parser.ts";
+import {FluttergenConfig} from "./yamlParser.ts";
 import {colorConverter, transparentRgb} from "./colorConverter.ts";
-import {useInfoPlist} from "./useInfoPlist.ts";
+import {usePlist} from "./usePlist.ts";
 import {useIosContentsJson} from "./useIosContentsJson.ts";
 import {useXmlParser} from "./xml.ts";
 import {useAndroidManifest} from "./useAndroidManifest.ts";
+import {KnownError} from "./knownError.ts";
 
 const ensureArr = (item: any) => Array.isArray(item) ? item : (item ? [item] : []);
 
@@ -119,14 +120,14 @@ export function useImageGenerator(config: FluttergenConfig) {
         iconContents.save();
         console.log(`- iOS icons (${iosIconName}) generated.`);
 
-        const plist = useInfoPlist('./ios/Runner/Info.plist');
-        plist.ensureKeyValue('CFBundleIconName', `<string>${iosIconName}</string>`);
+        const plist = usePlist('./ios/Runner/Info.plist');
+        plist.set('CFBundleIconName', 'string', iosIconName);
     }
 
     async function generateIosSplashScreen() {
         const imgMeta = await sharp(config.splash.path.light).metadata();
         if (!imgMeta.width || !imgMeta.height) {
-            throw new Error("Could not get image dimensions for iOS splash screen.");
+            throw new KnownError("Could not get image dimensions for iOS splash screen.");
         }
         const storyboardWidth = 393;
         const storyboardHeight = 852;
@@ -206,8 +207,8 @@ export function useImageGenerator(config: FluttergenConfig) {
         writeFileSync(`./ios/Runner/Base.lproj/${storyboardName}.storyboard`, splashContent);
         console.log(`- iOS splash storyboard (${storyboardName}.storyboard) generated.`);
 
-        const plist = useInfoPlist('./ios/Runner/Info.plist');
-        plist.ensureKeyValue('UILaunchStoryboardName', `<string>${storyboardName}</string>`);
+        const plist = usePlist('./ios/Runner/Info.plist');
+        plist.set('UILaunchStoryboardName', 'string', storyboardName);
     }
 
     async function generateAndroidIcons() {
@@ -398,7 +399,7 @@ export function useImageGenerator(config: FluttergenConfig) {
             await ensureColorResource(mode == 'dark' ? 'values-night' : 'values', `${androidSplashName}_color`, mode == 'dark' ? rgbDark : rgb);
             const imgMeta = await sharp(config.splash.path[mode]).metadata();
             if (!imgMeta.width || !imgMeta.height) {
-                throw new Error("Could not get image dimensions for Android splash screen.");
+                throw new KnownError("Could not get image dimensions for Android splash screen.");
             }
             const targetSizeDp = 200;
             const targetScale = 3;

@@ -5,6 +5,8 @@
       "name": "fluttergen",
       "dependencies": {
         "color-convert": "^3.1.3",
+        "dotenv": "^17.2.3",
+        "properties-file": "^3.6.3",
         "sharp": "^0.34.5",
         "xml2js": "^0.6.2",
         "yaml": "^2.8.1",
@@ -89,7 +91,11 @@
 
     "detect-libc": ["detect-libc@2.1.2", "", {}, "sha512-Btj2BOOO83o3WyH59e8MgXsxEQVcarkUOpEYrubB0urwnN10yQ364rsiByU11nZlqWYZm05i/of7io4mzihBtQ=="],
 
+    "dotenv": ["dotenv@17.2.3", "", {}, "sha512-JVUnt+DUIzu87TABbhPmNfVdBDt18BLOWjMUFJMSi/Qqg7NTYtabbvSNJGOJ7afbRuv9D/lngizHtP7QyLQ+9w=="],
+
     "kleur": ["kleur@3.0.3", "", {}, "sha512-eTIzlVOSUR+JxdDFepEYcBMtZ9Qqdef+rnzWdRZuMbOywu5tO2w2N7rqjoANZ5k9vywhL6Br1VRjUIgTQx4E8w=="],
+
+    "properties-file": ["properties-file@3.6.3", "", {}, "sha512-T0BLq5U7vMtfoHMAyirR386h/PkS9rva/EQIvy3yFmkYIjc485tgxN7eHgbtJx48O28A94MUYuRGF/iyC/L54A=="],
 
     "sax": ["sax@1.4.3", "", {}, "sha512-yqYn1JhPczigF94DMS+shiDMjDowYO6y9+wB/4WgO0Y19jWYk0lQ4tuG5KI7kj4FTp1wxPj5IFfcrz/s1c3jjQ=="],
 

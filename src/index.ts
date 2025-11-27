@@ -1,10 +1,12 @@
 #!/usr/bin/env node
 
-import {parsePubspecYamlFile} from "./yaml_parser.ts";
+import {getConfigurationOptionsForHelp, parsePubspecYamlFile} from "./yamlParser.ts";
 import {useImageGenerator} from "./useImageGenerator.ts";
-import {useNamer} from "./useNamer.ts";
+import {useInfoHandler} from "./useInfoHandler.ts";
 import fs from "fs";
 import path from "path";
+import {getPredefinedScripts, useScripts} from "./useScripts.ts";
+import {KnownError} from "./knownError.ts";
 
 function currentVersion() {
     const pkgPath = path.join(__dirname, '../package.json');
@@ -28,7 +30,53 @@ async function warnIfNewerVersionAvailable() {
     }
 }
 
-if (process.argv.includes('--version') || process.argv.includes('-v')) {
+async function main() {
+
+    const config = parsePubspecYamlFile('pubspec.yaml');
+    // console.log("Parsed Fluttergen Configuration:", config);
+    if (config.prescripts) {
+        useScripts(config, 'prescripts').execute();
+    }
+
+    const imageGenerator = useImageGenerator(config);
+    await imageGenerator.execute();
+
+    if (config.info) {
+        const namer = useInfoHandler(config.info)
+        namer.execute();
+    } else {
+        console.log("No renaming configuration found, skipping renaming step.");
+    }
+
+    if (config.postscripts) {
+        useScripts(config, 'postscripts').execute();
+    }
+
+    await warnIfNewerVersionAvailable();
+    process.exit(0);
+}
+
+
+if (process.argv.includes('--help') || process.argv.includes('-h')) {
+    (async () => {
+        console.log(`help for fluttergen:
+[no flags]       Run fluttergen with configuration from pubspec.yaml
+--help, -h       Show help information
+--version, -v    Show current version
+
+Configuration options:
+${getConfigurationOptionsForHelp()}
+
+Available predefined scripts:
+${getPredefinedScripts()}
+`);
+        await warnIfNewerVersionAvailable();
+        process.exit(0);
+    })().catch(e => {
+        console.error("Error during execution:", e);
+        process.exit(1);
+    });
+} else if (process.argv.includes('--version') || process.argv.includes('-v')) {
     (async () => {
         console.log(`fluttergen current version ${currentVersion()}`);
         await warnIfNewerVersionAvailable();
@@ -37,28 +85,22 @@ if (process.argv.includes('--version') || process.argv.includes('-v')) {
         console.error("Error during execution:", e);
         process.exit(1);
     });
+} else if (process.argv.includes('--version') || process.argv.includes('-v')) {
+    (async () => {
+        console.log(`fluttergen current version ${currentVersion()}`);
+        await warnIfNewerVersionAvailable();
+        process.exit(0);
+    })().catch(e => {
+        console.error("Error during execution:", e);
+        process.exit(1);
+    });
+} else {
+    main().catch(e => {
+        if (e instanceof KnownError) {
+            console.error("Error:", e.message);
+            process.exit(1);
+        }
+        console.error("Error during execution:", e.toString());
+        process.exit(1);
+    });
 }
-
-async function main() {
-
-    const config = parsePubspecYamlFile('pubspec.yaml');
-    console.log("Parsed Fluttergen Configuration:", config);
-
-    const imageGenerator = useImageGenerator(config);
-    await imageGenerator.execute();
-
-    if (config.rename) {
-        const namer = useNamer(config.rename)
-        namer.execute();
-    } else {
-        console.log("No renaming configuration found, skipping renaming step.");
-    }
-
-    await warnIfNewerVersionAvailable();
-    process.exit(0);
-}
-
-main().catch(e => {
-    console.error("Error during execution:", e);
-    process.exit(1);
-});

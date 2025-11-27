@@ -40,7 +40,7 @@
         <!-- Sample AdMob app ID: ca-app-pub-3940256099942544~3347511713 -->
         <meta-data
                 android:name="com.google.android.gms.ads.APPLICATION_ID"
-                android:value="ca-app-pub-8937043130589284~6645591592"/>
+                android:value="ca-app-pub-a1b2c3d4e5f6g7h8~1234567890"/>
 
         <!-- FCM default notification channel -->
         <meta-data
@@ -59,9 +59,9 @@
 
         <!-- Facebook Configuration -->
         <meta-data android:name="com.facebook.sdk.ApplicationId"
-                   android:value="1788851878443507"/>
+                   android:value="1234567890123456"/>
         <meta-data android:name="com.facebook.sdk.ClientToken"
-                   android:value="0b94bfcdb9b64c7ec8a9353af6bb35d9"/>
+                   android:value="a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6"/>
         <!-- Facebook Login Activities -->
         <activity android:name="com.facebook.FacebookActivity"
                   android:configChanges="keyboard|keyboardHidden|screenLayout|screenSize|orientation"
@@ -73,7 +73,7 @@
                 <action android:name="android.intent.action.VIEW"/>
                 <category android:name="android.intent.category.DEFAULT"/>
                 <category android:name="android.intent.category.BROWSABLE"/>
-                <data android:scheme="fb1788851878443507"/>
+                <data android:scheme="fb1234567890123456"/>
             </intent-filter>
         </activity>
 

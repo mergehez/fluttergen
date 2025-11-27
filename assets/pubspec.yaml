@@ -1,0 +1,111 @@
+name: aa
+description: "A new Flutter project."
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.11.0-93.1.beta
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+
+fluttergen:
+  info:
+    appName: My Awesome App
+    bundleIdentifier: com.my_company.my_app
+    applicationId: com.my_company.my_app
+    iosDevelopmentTeam: ABCDE12345
+    iosMinVersion: '13.0'
+    androidMinSdkVersion: 21
+    kotlinVersion: '1.9.10'
+    gradleVersion: '8.14'
+  icon:
+    name:
+      android: my_icon
+      ios: MyIcon
+    path: assets/icon_transparent.png
+    bgColor: '#018290'
+    borderRadius: 0.2
+    padding: 0.05
+  notificationIcon:
+    # path: assets/notification_icon.png
+    padding: 0.1
+  splash:
+    name:
+      android: splash_screen
+      ios: LaunchImage
+    path: assets/icon_with_title.png
+    bgColor:
+      light: '#00636E'
+      dark: '#00636E'
+    padding: 0.1
+    # borderRadius: 0.1
+
+  variables:
+    foo: bar
+    deep:
+      nestedKey: nestedValue
+  prescripts:
+    - runCommand('rm -rf android/app/src/main/res')
+    - argv.includes('--my-flag') && runCommand('echo "My flag is set!"')
+    - argv.includes('--my-flag') == false && runCommand('echo "My flag is not set!"')
+    - group:clean:
+        - runCommand('rm -rf android || true')
+        - runCommand('rm -rf ios || true')
+        - runCommand('flutter clean')
+        - runCommand('rm ".metadata" || true')
+        - runCommand('rm "pubspec.lock" || true')
+        - runCommand(`flutter create . --platforms=android,ios --org=com.my_company --project-name=my_app`)
+        - runCommand('rm -rf "test" || true')
+        - runCommand('rm -rf ".idea" || true')
+    - group:cleanPods:
+        - runCommand('echo "Cleaning iOS Pods..."')
+        - runCommand('sudo gem update cocoapods')
+        - runCommand('cd ios && pod deintegrate')
+        - runCommand('cd ios && pod cache clean --all')
+        - runCommand('cd ios && rm -rf Pods')
+        - runCommand('cd ios && rm -rf Podfile.lock')
+        - runCommand('cd ios && pod install')
+    - runCommand(`echo '- ${env.DEV_ACCOUNT}'`)
+    - argv.includes('--clean') && clean()
+    - argv.includes('--pods') && cleanPods()
+    #    - propertiesSet('android/gradle/wrapper/gradle-wrapper.properties', 'distributionUrl', 'https\\://services.gradle.org/distributions/gradle-8.14-bin.zip')
+    - propertiesSet('android/key.properties', 'storePassword', env.KS_STORE_PASSWORD)
+    - propertiesSet('android/key.properties', 'keyPassword', env.KS_KEY_PASSWORD)
+    - propertiesSet('android/key.properties', 'keyAlias', env.KS_ALIAS)
+    - propertiesSet('android/key.properties', 'storeFile', env.KS_FILE_PATH)
+    #    - process.exit(1);
+    #    - copyFile('_backup/AndroidManifest.xml', 'android/app/src/main/AndroidManifest.xml')
+    #    - copyFile('_backup/build.gradle.kts', 'android/build.gradle.kts')
+    #    - copyFile('_backup/app_build.gradle.kts', 'android/app/build.gradle.kts')
+    #    - copyFile('_backup/Info.plist', 'ios/Runner/Info.plist')
+    #    - copyFile('_backup/Runner.entitlements', 'ios/Runner/Runner.entitlements')
+    #    - copyFile('_backup/PrivacyInfo.xcprivacy', 'ios/PrivacyInfo.xcprivacy')
+    #    - copyFile('_backup/Podfile', 'ios/Podfile')
+    #    - yamlSet('pubspec.yaml', 'description', config.info.appName)
+    #    - runCommand(`flutterfire configure -f --account='${env.DEV_ACCOUNT}' --project='${env.FIREBASE_ID}' --platforms=ios,android`)
+    #    - runCommand(`flutter clean`)
+    #    - runCommand(`flutter pub get`)
+    - yamlSet('pubspec.yaml', 'existingKey', 'existingValue')
+    - yamlSet('pubspec.yaml', 'newKey', `newValue-${vars.deep.nestedKey}`)
+    - yamlAddToList('pubspec.yaml', 'newListKey', 'listItem1')
+    - yamlAddToList('pubspec.yaml', 'newListKey', 'listItem2')
+    - plistSet('ios/Runner/Info.plist', 'ITSAppUsesNonExemptEncryption', 'bool', false)
+    - plistInsert('ios/Runner/Info.plist', 'key1.key2.key3\\.com.key4', 'string', 'myvalue') # Note the escaped dot in key3.com
+    - plistAddToList('ios/Runner/Info.plist', 'key1.arr', 'string', 'item1')
+    - plistAddToList('ios/Runner/Info.plist', 'key1.arr', 'string', 'item2')
+  postscripts:
+    - runCommand('echo "- Re-configuration complete!"')
+
+existingKey: existingValue
+
+

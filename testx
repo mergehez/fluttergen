@@ -1,17 +1,20 @@
-// rm -rf aa || true && flutter create --platforms ios,android --org=ku.mergo -e aa && cp ./dist/index.js ./aa && cp ./pubspec.yaml ./aa && cp -r ./assets ./aa && cd ./aa && bun run index.js
-
 import fs from "fs";
 import {execSync} from "child_process";
 
 execSync('rm -rf aa || true', {stdio: 'inherit'});
 execSync('flutter create --platforms ios,android --org=ku.mergo -e aa');
+execSync('rm -rf aa/android/app/src/res || true', {stdio: 'inherit'});
 execSync("bun buildx", {stdio: 'inherit'});
+fs.mkdirSync('aa/assets', {recursive: true});
 fs.copyFileSync('./dist/index.cjs', './aa/index.cjs');
-fs.copyFileSync('./pubspec.yaml', './aa/pubspec.yaml');
-fs.copyFileSync('./manifest.xml', './aa/android/app/src/main/AndroidManifest.xml');
-fs.cpSync('./assets', './aa/assets', {recursive: true});
-execSync('cd aa/android/app/src/main && rm -rf res', {stdio: 'inherit'});
+fs.copyFileSync('./assets/pubspec.yaml', './aa/pubspec.yaml');
+fs.copyFileSync('./assets/.env', './aa/.env');
+fs.copyFileSync('./assets/manifest.xml', './aa/android/app/src/main/AndroidManifest.xml');
+fs.copyFileSync('./assets/icon_transparent.png', './aa/assets/icon_transparent.png');
+fs.copyFileSync('./assets/icon_with_title.png', './aa/assets/icon_with_title.png');
+fs.copyFileSync('./assets/test_avatar.png', './aa/assets/test_avatar.png');
 execSync('cd aa && bun run index.cjs', {stdio: 'inherit'});
+execSync('cd aa && bun run index.cjs --help', {stdio: 'inherit'});
 
 const runIndex = process.argv.findIndex(t => t == '-r' || t.startsWith('-r='));
 if (runIndex !== -1) {
