@@ -3,7 +3,10 @@ import {KnownError} from "./knownError.ts";
 
 export function replaceInFile(filePath: string, search: string | RegExp, replaceWith: string) {
     const content = fs.readFileSync(filePath, 'utf-8');
-    const updatedContent = content.replace(search, replaceWith);
+    const isRegex = search instanceof RegExp;
+    const updatedContent = isRegex
+        ? content.replace(search, replaceWith)
+        : content.replaceAll(search, replaceWith);
     fs.writeFileSync(filePath, updatedContent, 'utf-8');
 }
 
