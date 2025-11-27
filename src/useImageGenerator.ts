@@ -32,18 +32,15 @@ function writeFileSync(filePath: string, content: string) {
     fs.writeFileSync(filePath, content);
 }
 
-export function useImageGenerator(config: FluttergenConfig) {
-    // console.log("Generating icons and splash with config:", config);
-    const androidResFolder = "./android/app/src/main/res";
-    const iosAssetsFolder = "./ios/Runner/Assets.xcassets";
-    const androidIconName = config.icon.name.android;
-    const iosIconName = config.icon.name.ios;
-    const androidSplashName = config.splash.name.android;
-    const iosSplashName = config.splash.name.ios;
-    const storyboardName = 'LaunchScreen';
+const androidResFolder = "./android/app/src/main/res";
+const iosAssetsFolder = "./ios/Runner/Assets.xcassets";
+const storyboardName = 'LaunchScreen';
 
-    async function generateIosIcons() {
-        const iconContents = useIosContentsJson(path.join(iosAssetsFolder, `${iosIconName}.appiconset/Contents.json`));
+export function useImageGenerator(cfg: FluttergenConfig) {
+
+    async function generateIosIcons(iconCfg: FluttergenConfig['icon']) {
+        const iconFileName = iconCfg.name.ios;
+        const iconContents = useIosContentsJson(path.join(iosAssetsFolder, `${iconFileName}.appiconset/Contents.json`));
         iconContents.deleteOldFiles();
         type T = {
             borderRadius: number | undefined;
@@ -58,15 +55,15 @@ export function useImageGenerator(config: FluttergenConfig) {
         }
 
         async function resizeAndAdd(t: T) {
-            const fileName = `${iosIconName}-${t.size}@${t.scale}x${t.suffix ?? ''}.png`;
+            const fileName = `${iconFileName}-${t.size}@${t.scale}x${t.suffix ?? ''}.png`;
             await resizeImage({
                 borderRadius: t.borderRadius,
                 inputPath: t.path,
                 bgColor: t.bgColor,
                 width: t.size * t.scale,
                 height: t.size * t.scale,
-                outputPath: path.join(iosAssetsFolder, `${iosIconName}.appiconset`, fileName),
-                padding: config.icon.padding.ios,
+                outputPath: path.join(iosAssetsFolder, `${iconFileName}.appiconset`, fileName),
+                padding: iconCfg.padding.ios,
                 grayscale: t.suffix === '-monochrome' ? true : undefined,
             });
             iconContents.add(t.idiom, `${t.size}x${t.size}`, `${t.scale}x`, fileName, t.appearances);
@@ -88,9 +85,9 @@ export function useImageGenerator(config: FluttergenConfig) {
             // console.log(`Resizing icon to ${size}x${size} for iOS idiom ${idiom} with scales ${scales.join(', ')}`);
             for (const scale of scales) {
                 await resizeAndAdd({
-                    borderRadius: config.icon.borderRadius,
-                    path: config.icon.path.light,
-                    bgColor: config.icon.bgColor.light,
+                    borderRadius: iconCfg.borderRadius,
+                    path: iconCfg.path.light,
+                    bgColor: iconCfg.bgColor.light,
                     idiom, size, scale,
                 });
             }
@@ -98,18 +95,18 @@ export function useImageGenerator(config: FluttergenConfig) {
             // 'appearances' for ios-marketing (dark and tinted)
             if (idiom === 'ios-marketing') {
                 await resizeAndAdd({
-                    borderRadius: config.icon.borderRadius,
-                    path: config.icon.path.dark,
-                    bgColor: config.icon.bgColor.dark,
+                    borderRadius: iconCfg.borderRadius,
+                    path: iconCfg.path.dark,
+                    bgColor: iconCfg.bgColor.dark,
                     idiom, size,
                     scale: scales[0],
                     suffix: '-dark',
                     appearances: 'dark',
                 });
                 await resizeAndAdd({
-                    borderRadius: config.icon.borderRadius,
-                    path: config.icon.path.light,
-                    bgColor: config.icon.bgColor.light,
+                    borderRadius: iconCfg.borderRadius,
+                    path: iconCfg.path.light,
+                    bgColor: iconCfg.bgColor.light,
                     idiom, size,
                     scale: scales[0],
                     suffix: '-monochrome',
@@ -118,14 +115,15 @@ export function useImageGenerator(config: FluttergenConfig) {
             }
         }
         iconContents.save();
-        console.log(`- iOS icons (${iosIconName}) generated.`);
+        console.log(`- iOS icons (${iconFileName}) generated.`);
 
         const plist = usePlist('./ios/Runner/Info.plist');
-        plist.set('CFBundleIconName', 'string', iosIconName);
+        plist.set('CFBundleIconName', 'string', iconFileName);
     }
 
-    async function generateIosSplashScreen() {
-        const imgMeta = await sharp(config.splash.path.light).metadata();
+    async function generateIosSplashScreen(splashCfg: FluttergenConfig['splash']) {
+        const splashFileName = splashCfg.name.ios;
+        const imgMeta = await sharp(splashCfg.path.light).metadata();
         if (!imgMeta.width || !imgMeta.height) {
             throw new KnownError("Could not get image dimensions for iOS splash screen.");
         }
@@ -134,24 +132,24 @@ export function useImageGenerator(config: FluttergenConfig) {
         let width1x, height1x;
         // iphone7,8,SE: 375x667 pt
         if (imgMeta.width >= imgMeta.height) {
-            const wScale = storyboardWidth * (1 - config.splash.padding.ios) / imgMeta.width;
+            const wScale = storyboardWidth * (1 - splashCfg.padding.ios) / imgMeta.width;
             width1x = Math.floor(wScale * imgMeta.width);
             height1x = Math.floor(wScale * imgMeta.height);
         } else {
-            const hScale = storyboardHeight * (1 - config.splash.padding.ios) / imgMeta.height;
+            const hScale = storyboardHeight * (1 - splashCfg.padding.ios) / imgMeta.height;
             width1x = Math.floor(hScale * imgMeta.width);
             height1x = Math.floor(hScale * imgMeta.height);
         }
 
-        const splashImageContents = useIosContentsJson(path.join(iosAssetsFolder, `${iosSplashName}.imageset/Contents.json`));
+        const splashImageContents = useIosContentsJson(path.join(iosAssetsFolder, `${splashFileName}.imageset/Contents.json`));
         splashImageContents.deleteOldFiles();
         for (const suffix of ['', '-dark']) {
             for (const scale of [1, 2, 3]) {
-                const fileName = `${iosSplashName}@${scale}x${suffix}.png`;
-                const outputPath = path.join(iosAssetsFolder, `${iosSplashName}.imageset`, fileName);
+                const fileName = `${splashFileName}@${scale}x${suffix}.png`;
+                const outputPath = path.join(iosAssetsFolder, `${splashFileName}.imageset`, fileName);
                 await resizeImage({
-                    borderRadius: config.icon.borderRadius,
-                    inputPath: suffix == '-dark' ? config.splash.path.dark : config.splash.path.light,
+                    borderRadius: splashCfg.borderRadius,
+                    inputPath: suffix == '-dark' ? splashCfg.path.dark : splashCfg.path.light,
                     width: width1x * scale,
                     height: height1x * scale,
                     outputPath,
@@ -171,10 +169,10 @@ export function useImageGenerator(config: FluttergenConfig) {
             }
         }
         splashImageContents.save();
-        console.log(`- iOS splash images (${iosSplashName}) generated.`);
+        console.log(`- iOS splash images (${splashFileName}) generated.`);
 
-        const rgb = colorConverter.anyToRgba(config.splash.bgColor.light);
-        const rgbDark = colorConverter.anyToRgba(config.splash.bgColor.dark);
+        const rgb = colorConverter.anyToRgba(splashCfg.bgColor.light);
+        const rgbDark = colorConverter.anyToRgba(splashCfg.bgColor.dark);
         const colorAsset = {
             "colors": [
                 {
@@ -193,16 +191,16 @@ export function useImageGenerator(config: FluttergenConfig) {
             ],
             "info": {"author": "fluttergen", "version": 1}
         }
-        writeFileSync(`./ios/Runner/Assets.xcassets/${iosSplashName}BackColor.colorset/Contents.json`, JSON.stringify(colorAsset, null, 2));
-        console.log(`- iOS splash background color asset (${iosSplashName}BackColor) generated.`);
+        writeFileSync(`./ios/Runner/Assets.xcassets/${splashFileName}BackColor.colorset/Contents.json`, JSON.stringify(colorAsset, null, 2));
+        console.log(`- iOS splash background color asset (${splashFileName}BackColor) generated.`);
 
         // @ts-ignore
         const splashContent = (await import("./stub/ios-splash.txt")).default
-            .replaceAll('{ASSET-NAME}', iosSplashName)
+            .replaceAll('{ASSET-NAME}', splashFileName)
             .replaceAll('{IMAGE-WIDTH}', width1x.toString())
             .replaceAll('{IMAGE-HEIGHT}', height1x.toString())
-            .replaceAll('{COLOR-VAR}', `${iosSplashName}BackColor`)
-            .replaceAll('{CONTENT-WEIGHT}', (1 - 2 * config.splash.padding.ios).toString())
+            .replaceAll('{COLOR-VAR}', `${splashFileName}BackColor`)
+            .replaceAll('{CONTENT-WEIGHT}', (1 - 2 * splashCfg.padding.ios).toString())
 
         writeFileSync(`./ios/Runner/Base.lproj/${storyboardName}.storyboard`, splashContent);
         console.log(`- iOS splash storyboard (${storyboardName}.storyboard) generated.`);
@@ -211,25 +209,26 @@ export function useImageGenerator(config: FluttergenConfig) {
         plist.set('UILaunchStoryboardName', 'string', storyboardName);
     }
 
-    async function generateAndroidIcons() {
+    async function generateAndroidIcons(iconCfg: FluttergenConfig['icon'], notifCfg: FluttergenConfig['notificationIcon']) {
+        const iconFileName = iconCfg.name.android;
         // Helper function for generating adaptive icon foregrounds/monochromes
         const generateAdaptiveIconForMode = async (mode: 'light' | 'dark', drawableFolder: string) => {
             // 1. Determine the correct image path based on the mode
-            const inputPath = mode === 'dark' ? config.icon.path.dark : config.icon.path.light;
+            const inputPath = mode === 'dark' ? iconCfg.path.dark : iconCfg.path.light;
 
             // Use XXXHDPI size (432px) as the base for high-quality adaptive drawables
             const size = 432;
-            const paddingWeight = (size * 66 / 108 * config.icon.padding.android + (size - size * 66 / 108) / 2) / size;
+            const paddingWeight = (size * 66 / 108 * iconCfg.padding.android + (size - size * 66 / 108) / 2) / size;
 
             console.log(`- Generating ${mode} adaptive icon foreground to ${drawableFolder}/`);
 
             // --- Generate Foreground (colored) ---
             await resizeImage({
-                borderRadius: config.icon.borderRadius,
+                borderRadius: iconCfg.borderRadius,
                 inputPath: inputPath,
                 width: size,
                 height: size,
-                outputPath: path.join(androidResFolder, drawableFolder, `${androidIconName}_foreground.png`),
+                outputPath: path.join(androidResFolder, drawableFolder, `${iconFileName}_foreground.png`),
                 padding: paddingWeight,
                 transparent: true,
                 bgColor: undefined,
@@ -237,11 +236,11 @@ export function useImageGenerator(config: FluttergenConfig) {
 
             // --- Generate Monochrome (grayscale) ---
             await resizeImage({
-                borderRadius: config.icon.borderRadius,
+                borderRadius: iconCfg.borderRadius,
                 inputPath: inputPath,
                 width: size,
                 height: size,
-                outputPath: path.join(androidResFolder, drawableFolder, `${androidIconName}_monochrome.png`),
+                outputPath: path.join(androidResFolder, drawableFolder, `${iconFileName}_monochrome.png`),
                 padding: paddingWeight,
                 transparent: true,
                 grayscale: true,
@@ -264,13 +263,13 @@ export function useImageGenerator(config: FluttergenConfig) {
         for (const [folder, scale] of Object.entries({...mipmapScales, './assets/icon-512x512.png': 512})) {
             const asIs = scale == 512;
             await resizeImage({
-                borderRadius: config.icon.borderRadius,
-                inputPath: config.icon.path.light,
-                bgColor: config.icon.bgColor.light,
+                borderRadius: iconCfg.borderRadius,
+                inputPath: iconCfg.path.light,
+                bgColor: iconCfg.bgColor.light,
                 width: asIs ? scale : Math.round(48 * scale),
                 height: asIs ? scale : Math.round(48 * scale),
-                outputPath: asIs ? folder : `${androidResFolder}/mipmap-${folder}/${androidIconName}.png`,
-                padding: config.icon.padding.android,
+                outputPath: asIs ? folder : `${androidResFolder}/mipmap-${folder}/${iconFileName}.png`,
+                padding: iconCfg.padding.android,
             });
         }
         console.log("- Android legacy icons (mipmap/*) generated.");
@@ -279,20 +278,20 @@ export function useImageGenerator(config: FluttergenConfig) {
         // 2. ADAPTIVE ICON BACKGROUND COLORS (Light/Dark Mode)
         // ------------------------------------------------
 
-        const rgb = colorConverter.anyToRgba(config.icon.bgColor.light) || transparentRgb;
-        const rgbDark = colorConverter.anyToRgba(config.icon.bgColor.dark) || transparentRgb;
+        const rgb = colorConverter.anyToRgba(iconCfg.bgColor.light) || transparentRgb;
+        const rgbDark = colorConverter.anyToRgba(iconCfg.bgColor.dark) || transparentRgb;
 
         // Define color resources for light and dark mode backgrounds
-        await ensureColorResource('values', `${androidIconName}_background`, colorConverter.rgbaToHex(rgb).substring(0, 7));
-        await ensureColorResource('values-night', `${androidIconName}_background`, colorConverter.rgbaToHex(rgbDark).substring(0, 7));
+        await ensureColorResource('values', `${iconFileName}_background`, colorConverter.rgbaToHex(rgb).substring(0, 7));
+        await ensureColorResource('values-night', `${iconFileName}_background`, colorConverter.rgbaToHex(rgbDark).substring(0, 7));
 
         // Create a simple XML shape drawable for the background color (references the color resource)
         const bgDrawableContent =
             `<?xml version="1.0" encoding="utf-8"?>\n` +
             `<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">\n` +
-            `\t<solid android:color="@color/${androidIconName}_background"/>\n` +
+            `\t<solid android:color="@color/${iconFileName}_background"/>\n` +
             `</shape>`;
-        writeFileSync(getEnsuredPath(androidResFolder, 'drawable', `${androidIconName}_background.xml`), bgDrawableContent);
+        writeFileSync(getEnsuredPath(androidResFolder, 'drawable', `${iconFileName}_background.xml`), bgDrawableContent);
 
         // ------------------------------------------------
         // 3. ADAPTIVE ICON FOREGROUND (Light/Dark Images)
@@ -312,11 +311,11 @@ export function useImageGenerator(config: FluttergenConfig) {
         // IMPORTANT: Reference @drawable/ for the foreground/monochrome to enable theme swapping
         const anydpiV26Content = `<?xml version="1.0" encoding="utf-8"?>\n` +
             `<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">\n` +
-            `\t<background android:drawable="@drawable/${androidIconName}_background"/>\n` +
-            `\t<foreground android:drawable="@drawable/${androidIconName}_foreground"/>\n` +
-            `\t<monochrome android:drawable="@drawable/${androidIconName}_monochrome"/>\n` +
+            `\t<background android:drawable="@drawable/${iconFileName}_background"/>\n` +
+            `\t<foreground android:drawable="@drawable/${iconFileName}_foreground"/>\n` +
+            `\t<monochrome android:drawable="@drawable/${iconFileName}_monochrome"/>\n` +
             `</adaptive-icon>`;
-        writeFileSync(path.join(androidResFolder, 'mipmap-anydpi-v26', `${androidIconName}.xml`), anydpiV26Content);
+        writeFileSync(path.join(androidResFolder, 'mipmap-anydpi-v26', `${iconFileName}.xml`), anydpiV26Content);
 
         console.log("- Android adaptive icons generated.");
 
@@ -325,11 +324,11 @@ export function useImageGenerator(config: FluttergenConfig) {
         // ------------------------------------------------
 
         const notificationColorName = 'notification_accent_color';
-        const notificationIconName = config.notificationIcon !== false
-            ? ensureNoExtension(config.icon.name.android || 'ic').replace('_launcher', '') + '_notification'
+        const notificationIconName = notifCfg !== false
+            ? ensureNoExtension(iconCfg.name.android || 'ic').replace('_launcher', '') + '_notification'
             : undefined;
 
-        if (config.notificationIcon !== false && config.notificationIcon.path) {
+        if (notifCfg !== false && notifCfg.path) {
             await ensureColorResource('values', notificationColorName, '#ffffff');
 
             // Generate Image for each density
@@ -338,11 +337,11 @@ export function useImageGenerator(config: FluttergenConfig) {
 
                 await resizeImage({
                     borderRadius: 0,
-                    inputPath: config.notificationIcon.path,
+                    inputPath: notifCfg.path,
                     width: 24 * scale,
                     height: 24 * scale,
                     outputPath: path.join(mipmapFolder, `${notificationIconName}.png`),
-                    padding: config.notificationIcon.padding ?? 0,
+                    padding: notifCfg.padding ?? 0,
                     bgColor: undefined,
                     transparent: true,
                     whiteOnly: true,
@@ -359,8 +358,8 @@ export function useImageGenerator(config: FluttergenConfig) {
 
         const manifest = useAndroidManifest();
         if (manifest) {
-            manifest.ensureAttribute('application', 'android:icon', '@mipmap/' + androidIconName);
-            if (config.notificationIcon !== false) {
+            manifest.ensureAttribute('application', 'android:icon', '@mipmap/' + iconFileName);
+            if (notifCfg !== false) {
                 manifest.updateOrCreateMetaData('com.google.firebase.messaging.default_notification_icon', `@mipmap/${notificationIconName}`);
                 manifest.updateOrCreateMetaData('com.google.firebase.messaging.default_notification_color', `@color/${notificationColorName}`);
             }
@@ -368,7 +367,8 @@ export function useImageGenerator(config: FluttergenConfig) {
         }
     }
 
-    async function generateAndroidSplashScreen() {
+    async function generateAndroidSplashScreen(splashCfg: FluttergenConfig['splash'], iconName: string) {
+        const splashFileName = splashCfg.name.android;
         const valuesStyle = {
             // @ts-ignore
             light: useStylesXml('values', (await import("./stub/styles.txt")).default),
@@ -393,11 +393,11 @@ export function useImageGenerator(config: FluttergenConfig) {
     </item>
 </layer-list>`;
 
-        const rgb = colorConverter.rgbaToHex(colorConverter.anyToRgba(config.splash.bgColor.light), '#FFFFFF');
-        const rgbDark = colorConverter.rgbaToHex(colorConverter.anyToRgba(config.splash.bgColor.dark), '#000000');
+        const rgb = colorConverter.rgbaToHex(colorConverter.anyToRgba(splashCfg.bgColor.light), '#FFFFFF');
+        const rgbDark = colorConverter.rgbaToHex(colorConverter.anyToRgba(splashCfg.bgColor.dark), '#000000');
         for (const mode of ['light', 'dark'] as const) {
-            await ensureColorResource(mode == 'dark' ? 'values-night' : 'values', `${androidSplashName}_color`, mode == 'dark' ? rgbDark : rgb);
-            const imgMeta = await sharp(config.splash.path[mode]).metadata();
+            await ensureColorResource(mode == 'dark' ? 'values-night' : 'values', `${splashFileName}_color`, mode == 'dark' ? rgbDark : rgb);
+            const imgMeta = await sharp(splashCfg.path[mode]).metadata();
             if (!imgMeta.width || !imgMeta.height) {
                 throw new KnownError("Could not get image dimensions for Android splash screen.");
             }
@@ -409,28 +409,28 @@ export function useImageGenerator(config: FluttergenConfig) {
             const drawableFolder = mode == 'dark' ? 'drawable-night' : 'drawable';
 
             const cfg = {
-                borderRadius: config.splash.borderRadius,
-                inputPath: config.splash.path[mode],
+                borderRadius: splashCfg.borderRadius,
+                inputPath: splashCfg.path[mode],
                 width: aspectRatio >= 1 ? targetSizePx : Math.round(targetSizePx * aspectRatio),
                 height: aspectRatio < 1 ? targetSizePx : Math.round(targetSizePx / aspectRatio),
-                outputPath: path.join(androidResFolder, drawableFolder, `${androidSplashName}_image.png`),
+                outputPath: path.join(androidResFolder, drawableFolder, `${splashFileName}_image.png`),
                 padding: 0, // CRUCIAL: Remove padding from the PNG
                 transparent: true,
                 bgColor: undefined,
             } as const;
             await resizeImage(cfg);
-            console.log(`- Android ${mode} splash logo (${drawableFolder}/${androidSplashName}_image.png) generated.`);
+            console.log(`- Android ${mode} splash logo (${drawableFolder}/${splashFileName}_image.png) generated.`);
 
-            writeFileSync(path.join(androidResFolder, drawableFolder, `${androidSplashName}.xml`), createDrawableXml(`@drawable/${androidSplashName}_image`));
-            console.log(`- Android ${mode} splash drawable XML (drawable/${androidSplashName}.xml) generated.`);
+            writeFileSync(path.join(androidResFolder, drawableFolder, `${splashFileName}.xml`), createDrawableXml(`@drawable/${splashFileName}_image`));
+            console.log(`- Android ${mode} splash drawable XML (drawable/${splashFileName}.xml) generated.`);
 
-            await valuesStyle[mode].ensureAttribute('android:windowBackground', `@drawable/${androidSplashName}`);
+            await valuesStyle[mode].ensureAttribute('android:windowBackground', `@drawable/${splashFileName}`);
 
             const useIconAsFallback = aspectRatio != 1;
             if (useIconAsFallback)
                 console.log(`- Android ${mode} splash logo for v31: using icon image as fallback because splash image is not square.`);
-            await valuesV31Style[mode].ensureAttribute('android:windowSplashScreenAnimatedIcon', useIconAsFallback ? `@mipmap/${androidIconName}` : `@drawable/${androidSplashName}_image`);
-            await valuesV31Style[mode].ensureAttribute('android:windowSplashScreenBackground', `@color/${androidSplashName}_color`);
+            await valuesV31Style[mode].ensureAttribute('android:windowSplashScreenAnimatedIcon', useIconAsFallback ? `@mipmap/${iconName}` : `@drawable/${splashFileName}_image`);
+            await valuesV31Style[mode].ensureAttribute('android:windowSplashScreenBackground', `@color/${splashFileName}_color`);
         }
     }
 
@@ -568,11 +568,11 @@ export function useImageGenerator(config: FluttergenConfig) {
 
     return {
         execute: async () => {
-            await generateIosIcons();
+            await generateIosIcons(cfg.icon);
 
-            await generateIosSplashScreen();
-            await generateAndroidIcons();
-            await generateAndroidSplashScreen();
+            await generateIosSplashScreen(cfg.splash);
+            await generateAndroidIcons(cfg.icon, cfg.notificationIcon);
+            await generateAndroidSplashScreen(cfg.splash, cfg.icon.name.android);
         },
     }
 }
