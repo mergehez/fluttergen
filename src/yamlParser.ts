@@ -136,7 +136,7 @@ export type ImageConfig = {
     padding: { android: number; ios: number; };
 }
 export type FluttergenConfig = {
-    variables: Record<string, any> | undefined;
+    variables: Record<string, any>;
     info: AppInfoConfig | undefined;
     icon: ImageConfig;
     splash: ImageConfig

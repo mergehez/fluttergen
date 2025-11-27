@@ -34,6 +34,9 @@ function getFunctions() {
         yamlAddToList: (filePath: string, keyPath: string, newValue: string, mkDir: boolean | number = 1) => useYamlFile(filePath).addToList(keyPath, newValue, mkDir),
         yamlSet: (filePath: string, keyPath: string, newValue: string) => useYamlFile(filePath).set(keyPath, newValue),
         plistAddToList: (filePath: string, keyPath: string, type: string, newValue: string) => usePlist(filePath).addToList(keyPath, type, newValue),
+        plistGet: (filePath: string, keyPath: string) => usePlist(filePath).get(keyPath),
+        // plistGetArray: (filePath: string, keyPath: string) => usePlist(filePath).getComplex(keyPath),
+        // plistGetDict: (filePath: string, keyPath: string) => usePlist(filePath).getComplex(keyPath),
         plistSet: (filePath: string, keyPath: string, type: string, newValue: string) => usePlist(filePath).set(keyPath, type, newValue),
         plistInsert: (filePath: string, keyPath: string, type: string, newValue?: string) => usePlist(filePath).insert(keyPath, type, newValue),
         propertiesSet: (filePath: string, key: string, value: string) => {

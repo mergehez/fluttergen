@@ -105,6 +105,7 @@ fluttergen:
     - plistAddToList('ios/Runner/Info.plist', 'key1.arr', 'string', 'item1')
     - plistAddToList('ios/Runner/Info.plist', 'key1.arr', 'string', 'item2')
   postscripts:
+    - plistSet('ios/Runner/Info.plist', 'CADisableMinimumFrameDurationOnPhone', 'string', plistGet('ios/Runner/Info.plist', 'CFBundleDisplayName'))
     - runCommand('echo "- Re-configuration complete!"')
 
 existingKey: existingValue

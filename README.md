@@ -200,6 +200,7 @@ Available helper functions:
 | `plistAddToList` | `file, key, type, value`                  | Add items to plist arrays                                                     |
 | `plistInsert`    | `file, nestedKey, type, value`            | Insert nested plist values (use `\\.` to escape dots in key names)            |
 | `plistSet`       | `file, key, type, value`                  | Set plist values                                                              |
+| `plistGet`       | `file, key`                               | Get a plist value                                                             |
 | `propertiesSet`  | `file, key, value`                        | Set properties file values (e.g., gradle.properties, .env)                    |
 | `replaceInFile`  | `file, searchOrRegex, replacement, type?` | Replace content in a file (supports regex patterns with `/pattern/` syntax)   |
 | `runCommand`     | `cmd`                                     | Execute shell commands                                                        |

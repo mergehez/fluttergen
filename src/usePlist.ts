@@ -51,9 +51,30 @@ export function usePlist(filePath: string) {
         const command = `plutil -replace ${keyPath} ${type} "${value}" "${filePath}"`;
         execSync(command, {stdio: 'inherit'});
     }
+    const getSimple = (keyPath: string): string => {
+        keyPath = fixDots(keyPath);
+        const command = `plutil -extract ${keyPath} raw "${filePath}"`;
+        return execSync(command, {stdio: 'pipe'}).toString().trim();
+    }
+    const getComplex = (keyPath: string): Record<string, any> => {
+        keyPath = fixDots(keyPath);
+        const command = `plutil -extract ${keyPath} json -o - "${filePath}"`;
+        const output = execSync(command, {stdio: 'pipe'}).toString().trim();
+        return JSON.parse(output);
+    }
+    const get = (keyPath: string): any => {
+        try {
+            return getSimple(keyPath);
+        } catch (error) {
+            return getComplex(keyPath);
+        }
+    }
     return {
         insert: insert,
         set: set,
+        get: get,
+        getSimple: getSimple,
+        getComplex: getComplex,
 
         addToList(keyPath: string, type: string, newValue: string) {
             keyPath = fixDots(keyPath);
