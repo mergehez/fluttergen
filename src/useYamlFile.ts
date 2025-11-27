@@ -10,12 +10,19 @@ export function useYamlFile(path: string) {
         return fs.readFileSync(path, 'utf8');
     }
 
+    function encode(root: YAML.Document.Parsed) {
+        return root.toString({
+            lineWidth: 0,
+            minContentWidth: 0
+        });
+    }
+
     function addToList(keyPath: string, newValue: string, mkDir: boolean | number = 1) {
         const root = YAML.parseDocument(_getContent(), {lineCounter: new LineCounter()});
         let list = root.getIn(keyPath.split('.'));
         if (!list && mkDir) {
             root.setIn(keyPath.split('.'), [newValue]);
-            fs.writeFileSync(path, root.toString(), 'utf8');
+            fs.writeFileSync(path, encode(root), 'utf8');
             return;
         }
 
@@ -35,7 +42,7 @@ export function useYamlFile(path: string) {
             }
             list.push(newValue);
             root.setIn(keyPath.split('.'), list);
-            fs.writeFileSync(path, root.toString(), 'utf8');
+            fs.writeFileSync(path, encode(root), 'utf8');
         } else {
             if (typeof list === 'object') {
                 console.log(list)
@@ -48,7 +55,7 @@ export function useYamlFile(path: string) {
         const lineCounter = new LineCounter();
         let root = YAML.parseDocument(_getContent(), {lineCounter});
         root.setIn(keyPath.split('.'), newValue);
-        fs.writeFileSync(path, root.toString(), 'utf8');
+        fs.writeFileSync(path, encode(root), 'utf8');
     }
 
     function get(keyPath: string): string | undefined {
