@@ -59,6 +59,24 @@ function getFunctions() {
                 replaceInFile(filePath, stringOrRegex, newValue);
             }
         },
+        versionUp: () => {
+            const yaml = useYamlFile('./pubspec.yaml');
+            const currentVersion = yaml.get('version');
+            if (!currentVersion) {
+                throw new KnownError(`No version found in pubspec.yaml`);
+            }
+            const [versionPart, buildPart] = currentVersion.split('+');
+            const versionSegments = versionPart.split('.').map(seg => parseInt(seg, 10));
+            if (versionSegments.length !== 3 || versionSegments.some(isNaN)) {
+                throw new KnownError(`Invalid version format in pubspec.yaml: ${currentVersion}`);
+            }
+            versionSegments[versionSegments.length - 1] += 1;
+            const newVersionPart = versionSegments.join('.');
+            const newBuildPart = buildPart ? (parseInt(buildPart, 10) + 1).toString() : '1';
+            const newVersion = `${newVersionPart}+${newBuildPart}`;
+            yaml.set('version', newVersion);
+            console.log(`- Version updated from ${currentVersion} to ${newVersion}`);
+        },
         runCommand: (command: string) => {
             console.log(`- Running command: ${command}`);
             execSync(command, {stdio: 'inherit'});

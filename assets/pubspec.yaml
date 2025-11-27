@@ -78,6 +78,7 @@ fluttergen:
     - runCommand(`echo '- ${env.DEV_ACCOUNT}'`)
     - argv.includes('--clean') && clean()
     - argv.includes('--pods') && cleanPods()
+    - argv.includes('--up') && versionUp()
     #    - propertiesSet('android/gradle/wrapper/gradle-wrapper.properties', 'distributionUrl', 'https\\://services.gradle.org/distributions/gradle-8.14-bin.zip')
     - propertiesSet('android/key.properties', 'storePassword', env.KS_STORE_PASSWORD)
     - propertiesSet('android/key.properties', 'keyPassword', env.KS_KEY_PASSWORD)
