@@ -13,7 +13,7 @@ export function usePbxproj(pbxprojPath: string) {
         proj.parseSync();
 
         const groupKey = Object.entries(proj.getPBXObject("PBXGroup")).filter(t => t[1] === groupName)[0]?.[0].replace('_comment', '');
-        proj.addFile(fileName, groupKey, {lastKnownFileType: "text.plist.entitlements", path: fileName, sourceTree: "<group>"});
+        proj.addFile(fileName, groupKey, {lastKnownFileType: "text.plist.entitlements", path: fileName, sourceTree: `"<group>"`});
 
         if (isCodeSign)
             Object.values(proj.pbxXCBuildConfigurationSection())
