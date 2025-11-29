@@ -84,6 +84,7 @@ fluttergen:
     - propertiesSet('android/key.properties', 'keyPassword', env.KS_KEY_PASSWORD)
     - propertiesSet('android/key.properties', 'keyAlias', env.KS_ALIAS)
     - propertiesSet('android/key.properties', 'storeFile', env.KS_FILE_PATH)
+    - pbxprojAddEntitlements('ios/Runner.xcodeproj/project.pbxproj', 'Runner.entitlements', 'Runner', 1)
     #    - process.exit(1);
     #    - copyFile('_backup/AndroidManifest.xml', 'android/app/src/main/AndroidManifest.xml')
     #    - copyFile('_backup/build.gradle.kts', 'android/build.gradle.kts')

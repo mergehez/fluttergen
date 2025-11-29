@@ -9,8 +9,8 @@ import {KnownError} from "./knownError.ts";
 import {replaceInFile, useBuildGradle} from "fileHandler/useBuildGradle.ts";
 import {usePlist} from "fileHandler/usePlist.ts";
 import * as propFile from 'properties-file'
-import {usePropertiesFile} from "./usePropertiesFile.ts";
 import {usePropertiesFile} from "fileHandler/usePropertiesFile.ts";
+import {usePbxproj} from "fileHandler/usePbxproj.ts";
 
 function getFunctions() {
     // noinspection JSUnusedGlobalSymbols
@@ -40,6 +40,10 @@ function getFunctions() {
         // plistGetDict: (filePath: string, keyPath: string) => usePlist(filePath).getComplex(keyPath),
         plistSet: (filePath: string, keyPath: string, type: string, newValue: string) => usePlist(filePath).set(keyPath, type, newValue),
         plistInsert: (filePath: string, keyPath: string, type: string, newValue?: string) => usePlist(filePath).insert(keyPath, type, newValue),
+        pbxprojAddEntitlements: (projPath: string, entName: string, groupName: string, isCodeSign: boolean | number = 0) => {
+            console.log(`- Adding entitlements file ${entName} to pbxproj at ${projPath}`);
+            usePbxproj(projPath).addEntitlements(entName, groupName, isCodeSign);
+        },
         propertiesSet: (filePath: string, key: string, value: string) => {
             console.log(`- Setting property in ${filePath}: ${key}=${value}`);
             usePropertiesFile(filePath).set(key, value);
