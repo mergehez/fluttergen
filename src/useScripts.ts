@@ -4,12 +4,13 @@ import {FluttergenConfig} from "./yamlParser.ts";
 import fs, {mkdirSync} from "fs";
 import {execSync} from "child_process";
 import path from "path";
-import {useYamlFile} from "./useYamlFile.ts";
+import {useYamlFile} from "fileHandler/useYamlFile.ts";
 import {KnownError} from "./knownError.ts";
-import {replaceInFile, useBuildGradle} from "./useBuildGradle.ts";
-import {usePlist} from "./usePlist.ts";
+import {replaceInFile, useBuildGradle} from "fileHandler/useBuildGradle.ts";
+import {usePlist} from "fileHandler/usePlist.ts";
 import * as propFile from 'properties-file'
 import {usePropertiesFile} from "./usePropertiesFile.ts";
+import {usePropertiesFile} from "fileHandler/usePropertiesFile.ts";
 
 function getFunctions() {
     // noinspection JSUnusedGlobalSymbols

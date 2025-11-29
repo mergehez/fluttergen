@@ -1,6 +1,6 @@
 import * as fs from "fs";
 import YAML, {LineCounter, Pair, YAMLSeq} from "yaml";
-import {KnownError} from "./knownError.ts";
+import {KnownError} from "knownError.ts";
 
 export function useYamlFile(path: string) {
     function _getContent() {

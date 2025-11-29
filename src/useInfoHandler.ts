@@ -1,8 +1,8 @@
 import {AppInfoConfig} from "./yamlParser.ts";
-import {useAndroidManifest} from "./useAndroidManifest.ts";
-import {usePlist} from "./usePlist.ts";
-import {replaceInFile, useBuildGradle} from "./useBuildGradle.ts";
-import {usePropertiesFile} from "./usePropertiesFile.ts";
+import {useAndroidManifest} from "fileHandler/useAndroidManifest.ts";
+import {usePlist} from "fileHandler/usePlist.ts";
+import {replaceInFile, useBuildGradle} from "fileHandler/useBuildGradle.ts";
+import {usePropertiesFile} from "fileHandler/usePropertiesFile.ts";
 
 export function useInfoHandler(config: AppInfoConfig) {
     return {

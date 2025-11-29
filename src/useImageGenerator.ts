@@ -5,10 +5,10 @@ import path from "path";
 import sharp from "sharp";
 import {FluttergenConfig} from "./yamlParser.ts";
 import {colorConverter, transparentRgb} from "./colorConverter.ts";
-import {usePlist} from "./usePlist.ts";
-import {useIosContentsJson} from "./useIosContentsJson.ts";
-import {useXmlParser} from "./xml.ts";
-import {useAndroidManifest} from "./useAndroidManifest.ts";
+import {usePlist} from "fileHandler/usePlist.ts";
+import {useIosContentsJson} from "fileHandler/useIosContentsJson.ts";
+import {useXmlParser} from "fileHandler/useXmlParser.ts";
+import {useAndroidManifest} from "fileHandler/useAndroidManifest.ts";
 import {KnownError} from "./knownError.ts";
 
 const ensureArr = (item: any) => Array.isArray(item) ? item : (item ? [item] : []);

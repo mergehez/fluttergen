@@ -1,7 +1,7 @@
 import YAML from "yaml";
 import fs from 'fs';
 import * as z from 'zod';
-import {useYamlFile} from "./useYamlFile.ts";
+import {useYamlFile} from "fileHandler/useYamlFile.ts";
 import {KnownError} from "./knownError.ts";
 import {ZodType} from "zod";
 

@@ -1,5 +1,5 @@
 import * as fs from "fs";
-import {KnownError} from "./knownError.ts";
+import {KnownError} from "knownError.ts";
 
 export function replaceInFile(filePath: string, search: string | RegExp, replaceWith: string) {
     const content = fs.readFileSync(filePath, 'utf-8');
