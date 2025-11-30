@@ -37,6 +37,10 @@
         </activity>
 
 
+        <!-- Test1: {cfg.info.appName} -->
+        <!-- Test2: {cfg.info.appNameX} -->
+        <!-- Test3: {cfg.infoX.appName} -->
+        <!-- Test4: {env.DEV_ACCOUNT} -->
         <!-- Sample AdMob app ID: ca-app-pub-3940256099942544~3347511713 -->
         <meta-data
                 android:name="com.google.android.gms.ads.APPLICATION_ID"

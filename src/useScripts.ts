@@ -11,6 +11,7 @@ import {usePlist} from "fileHandler/usePlist.ts";
 import * as propFile from 'properties-file'
 import {usePropertiesFile} from "fileHandler/usePropertiesFile.ts";
 import {usePbxproj} from "fileHandler/usePbxproj.ts";
+import {usePlaceholderReplacer} from "fileHandler/usePlaceholderReplacer.ts";
 
 function getFunctions() {
     // noinspection JSUnusedGlobalSymbols
@@ -66,6 +67,10 @@ function getFunctions() {
             } else {
                 replaceInFile(filePath, stringOrRegex, newValue);
             }
+        },
+        replacePlaceholdersInFile: (filePath: string, prefix: string, object: Record<string, any>) => {
+            const replacer = usePlaceholderReplacer(filePath);
+            replacer.replace(prefix, object);
         },
         versionUp: () => {
             const yaml = useYamlFile('./pubspec.yaml');

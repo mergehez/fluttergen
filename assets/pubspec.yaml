@@ -108,6 +108,8 @@ fluttergen:
   postscripts:
     - plistSet('ios/Runner/Info.plist', 'CADisableMinimumFrameDurationOnPhone', 'string', plistGet('ios/Runner/Info.plist', 'CFBundleDisplayName'))
     - runCommand('echo "- Re-configuration complete!"')
+      - replacePlaceholdersInFile('android/app/src/main/AndroidManifest.xml', 'cfg', config)
+    - replacePlaceholdersInFile('android/app/src/main/AndroidManifest.xml', 'env', env)
 
 existingKey: existingValue
 
