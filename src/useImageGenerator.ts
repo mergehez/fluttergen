@@ -51,22 +51,37 @@ export function useImageGenerator(cfg: FluttergenConfig) {
             size: number;
             scale: number;
             suffix?: string;
-            appearances?: 'dark' | 'monochrome';
+            appearances?: 'dark';
         }
 
-        async function resizeAndAdd(t: T) {
+        async function resizeAndAdd(t: T, monochromeAsWell = false) {
             const fileName = `${iconFileName}-${t.size}@${t.scale}x${t.suffix ?? ''}.png`;
-            await resizeImage({
+            const outputPath = path.join(iosAssetsFolder, `${iconFileName}.appiconset`, fileName);
+            const cfg = {
                 borderRadius: t.borderRadius,
                 inputPath: t.path,
                 bgColor: t.bgColor,
                 width: t.size * t.scale,
                 height: t.size * t.scale,
-                outputPath: path.join(iosAssetsFolder, `${iconFileName}.appiconset`, fileName),
+                outputPath: outputPath,
                 padding: iconCfg.padding.ios,
-                grayscale: t.suffix === '-monochrome' ? true : undefined,
-            });
+                grayscale: undefined,
+            }
+            await resizeImage(cfg);
             iconContents.add(t.idiom, `${t.size}x${t.size}`, `${t.scale}x`, fileName, t.appearances);
+
+            if (monochromeAsWell) {
+                const monoFileName = `${iconFileName}-${t.size}@${t.scale}x-monochrome.png`;
+                await resizeImage({
+                    ...cfg,
+                    inputPath: outputPath,
+                    outputPath: path.join(iosAssetsFolder, `${iconFileName}.appiconset`, monoFileName),
+                    borderRadius: 0,
+                    padding: 0,
+                    grayscale: true
+                });
+                iconContents.add(t.idiom, `${t.size}x${t.size}`, `${t.scale}x`, monoFileName, 'monochrome');
+            }
         }
 
         const iconConfigs = [
@@ -83,36 +98,28 @@ export function useImageGenerator(cfg: FluttergenConfig) {
         ] as const;
         for (const [idiom, size, scales] of iconConfigs) {
             // console.log(`Resizing icon to ${size}x${size} for iOS idiom ${idiom} with scales ${scales.join(', ')}`);
+            const isBigIcon = idiom === 'ios-marketing'
             for (const scale of scales) {
                 await resizeAndAdd({
-                    borderRadius: iconCfg.borderRadius,
+                    borderRadius: isBigIcon ? 0 : iconCfg.borderRadius,
                     path: iconCfg.path.light,
                     bgColor: iconCfg.bgColor.light,
                     idiom, size, scale,
-                });
+                }, isBigIcon);
+                // 'appearances' for ios-marketing (dark and tinted)
+                if (isBigIcon) {
+                    await resizeAndAdd({
+                        borderRadius: 0,
+                        path: iconCfg.path.dark,
+                        bgColor: iconCfg.bgColor.dark,
+                        idiom, size,
+                        scale: scales[0],
+                        suffix: '-dark',
+                        appearances: 'dark',
+                    });
+                }
             }
 
-            // 'appearances' for ios-marketing (dark and tinted)
-            if (idiom === 'ios-marketing') {
-                await resizeAndAdd({
-                    borderRadius: iconCfg.borderRadius,
-                    path: iconCfg.path.dark,
-                    bgColor: iconCfg.bgColor.dark,
-                    idiom, size,
-                    scale: scales[0],
-                    suffix: '-dark',
-                    appearances: 'dark',
-                });
-                await resizeAndAdd({
-                    borderRadius: iconCfg.borderRadius,
-                    path: iconCfg.path.light,
-                    bgColor: iconCfg.bgColor.light,
-                    idiom, size,
-                    scale: scales[0],
-                    suffix: '-monochrome',
-                    appearances: 'monochrome',
-                });
-            }
         }
         iconContents.save();
         console.log(`- iOS icons (${iconFileName}) generated.`);
@@ -496,13 +503,6 @@ export function useImageGenerator(cfg: FluttergenConfig) {
             background: transparentRgb, // Always resize onto a transparent background
         });
 
-        if (opts.whiteOnly) {
-            image = image
-                .grayscale()
-                .tint({r: 255, g: 255, b: 255});
-        } else if (opts.grayscale) {
-            image = image.grayscale();
-        }
 
         if (!opts.transparent && bgColorRgba.alpha > 0) {
             // Flatten the image onto the non-transparent background color
@@ -522,6 +522,11 @@ export function useImageGenerator(cfg: FluttergenConfig) {
                 });
         }
 
+        if (opts.whiteOnly) {
+            image = image.grayscale().tint({r: 255, g: 255, b: 255});
+        } else if (opts.grayscale) {
+            image = image.grayscale();
+        }
         // 6. Corner Radius
         if (borderRadius > 0) {
             const mask = Buffer.from(
