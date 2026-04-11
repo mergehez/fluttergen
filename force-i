@@ -1,12 +1,32 @@
 import {execSync} from "node:child_process";
 
-try {
-    execSync('npm uninstall -g fluttergen --force', {stdio: 'inherit'});
-    execSync('npm cache clean --force', {stdio: 'inherit'});
-    execSync('npm i -g fluttergen --force', {stdio: 'inherit'});
-    execSync('npm list -g', {stdio: 'inherit'});
-    execSync('bun remove --global fluttergen', {stdio: 'inherit'});
-    execSync('bun add --global fluttergen --force', {stdio: 'inherit'});
-} catch (_) {
-    console.warn('Global installation verification failed, but publishing was successful.');
+function start(retry = true) {
+    try {
+        execSync('npm uninstall -g fluttergen --force', {stdio: 'inherit'});
+        execSync('npm cache clean --force', {stdio: 'inherit'});
+        execSync('npm i -g fluttergen --force', {stdio: 'inherit'});
+        const npmList = execSync('npm list -g', {stdio: ['inherit', 'pipe']});
+        execSync('bun remove --global fluttergen', {stdio: 'inherit'});
+        const bunList = execSync('bun add --global fluttergen --force', {stdio: ['inherit', 'pipe']});
+
+        // installed fluttergen@0.0.36
+        const bunVersion = / fluttergen@([\d.]+)/.exec(bunList.toString())?.[1]
+        //── fluttergen@0.0.36
+        const npmVersion = / fluttergen@([\d.]+)/.exec(npmList.toString())?.[1]
+        console.log({bunVersion, npmVersion});
+        if (bunVersion && npmVersion && bunVersion !== npmVersion) {
+            if (!retry) {
+                console.error('Npm package was not updated correctly after retry. Exiting.');
+                process.exit(1);
+            }
+            console.log('Npm package was not updated correctly. Trying again in 2 seconds...');
+            setTimeout(() => {
+                start(false);
+            }, 2000);
+        }
+    } catch (_) {
+        console.warn('Global installation verification failed.');
+    }
 }
+
+start(true);
