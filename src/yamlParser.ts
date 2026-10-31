@@ -1,7 +1,7 @@
 import YAML from "yaml";
 import fs from 'fs';
 import * as z from 'zod';
-import {parse as parseEnv} from 'dotenv';
+import {expandEnvironment, loadEnvironment} from "./env.ts";
 import {KnownError} from "./knownError.ts";
 import {ZodType} from "zod";
 
@@ -42,6 +42,21 @@ const fluttergenConfigSchema = z.object({
     ]).optional().describe('Android notification icon configuration (set to false to disable)'),
     variables: z.any().optional().describe('Reusable variables that can be referenced in scripts'),
     workflows: z.record(z.string(), z.array(z.any())).optional().describe('Named reusable workflow steps'),
+    profiles: z.record(z.string(), z.any()).optional().describe('Named configuration overrides selected with --profile'),
+    signing: z.object({
+        android: z.object({
+            keystore: z.string().optional().describe('Path to the keystore file (alias for storeFile)'),
+            storeFile: z.string().optional().describe('Path to the keystore file'),
+            storePassword: z.string().optional().describe('Keystore password'),
+            keyAlias: z.string().optional().describe('Key alias'),
+            keyPassword: z.string().optional().describe('Key password'),
+        }).optional().describe('Android signing configuration'),
+        ios: z.object({
+            team: z.string().optional().describe('Apple development team ID'),
+            entitlements: z.record(z.string(), z.any()).optional().describe('Entitlements plist values'),
+            entitlementsFile: z.string().optional().describe('Entitlements file name (default: Runner.entitlements)'),
+        }).optional().describe('iOS signing configuration'),
+    }).optional().describe('Signing and credentials configuration'),
     prescripts: z.array(z.any()).optional().describe('Scripts to execute before the main fluttergen operations'),
     postscripts: z.array(z.any()).optional().describe('Scripts to execute after the main fluttergen operations'),
 });
@@ -218,6 +233,22 @@ export type ImageConfig = {
     borderRadius: number;
     padding: { android: number; ios: number; };
 }
+export type AndroidSigningConfig = {
+    keystore?: string;
+    storeFile?: string;
+    storePassword?: string;
+    keyAlias?: string;
+    keyPassword?: string;
+}
+export type IosSigningConfig = {
+    team?: string;
+    entitlements?: Record<string, any>;
+    entitlementsFile?: string;
+}
+export type SigningConfig = {
+    android?: AndroidSigningConfig;
+    ios?: IosSigningConfig;
+}
 export type FluttergenConfig = {
     variables: Record<string, any>;
     info: AppInfoConfig | undefined;
@@ -230,30 +261,73 @@ export type FluttergenConfig = {
         padding: number;
     }
     workflows: Record<string, WorkflowStep[]>;
+    signing: SigningConfig | undefined;
+    profile: string | undefined;
     prescripts: (string | Record<string, any>)[] | undefined;
     postscripts: (string | Record<string, any>)[] | undefined;
 }
 
 export type WorkflowStep = string | Record<string, any>;
 
-export function parsePubspecYamlFile(path: string): FluttergenConfig {
+function isPlainObject(value: unknown): value is Record<string, any> {
+    return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+        && (value as object).constructor === Object;
+}
+
+/**
+ * Merges a profile override into the base config.
+ * Plain objects merge recursively; arrays and primitives replace.
+ */
+function mergeConfig(base: any, override: any): any {
+    if (override === undefined) return base;
+    if (Array.isArray(base) || Array.isArray(override)) return override;
+    if (isPlainObject(base) && isPlainObject(override)) {
+        const result: Record<string, any> = {...base};
+        for (const [key, value] of Object.entries(override)) {
+            result[key] = mergeConfig(base[key], value);
+        }
+        return result;
+    }
+    return override;
+}
+
+export function parsePubspecYamlFile(path: string, profile?: string): FluttergenConfig {
     if (!fs.existsSync(path)) {
         throw new KnownError(`Required file not found: ${path}`);
     }
     const yamlContent = fs.readFileSync(path, 'utf8');
-    return parsePubspecYaml(yamlContent);
+    return parsePubspecYaml(yamlContent, profile);
 }
 
-export function parsePubspecYaml(yamlContent: string): FluttergenConfig {
+export function parsePubspecYaml(yamlContent: string, profile?: string): FluttergenConfig {
     yamlContent = yamlContent.replaceAll(' :: ', ' : '); // normalize incorrect spacing
     const pubspec = YAML.parse(yamlContent) as Record<string, any>;
     if (!pubspec) {
         throw new KnownError("YAML content is empty or invalid.");
     }
-    const config = pubspec.fluttergen as PrettyPrint<z.infer<typeof fluttergenConfigSchema>> | undefined;
-    if (!config) {
+    const baseConfig = pubspec.fluttergen as PrettyPrint<z.infer<typeof fluttergenConfigSchema>> | undefined;
+    if (!baseConfig) {
         throw new KnownError("Missing 'fluttergen' configuration in pubspec.yaml.");
     }
+
+    const selectedProfile = profile ?? process.env.FLUTTERGEN_PROFILE;
+    let config = baseConfig;
+
+    if (selectedProfile) {
+        const profiles = baseConfig.profiles as Record<string, any> | undefined;
+        if (!profiles || !profiles[selectedProfile]) {
+            const available = profiles ? Object.keys(profiles) : [];
+            throw new KnownError(
+                `Profile '${selectedProfile}' is not defined in pubspec.yaml`
+                + (available.length ? ` (available: ${available.join(', ')})` : '')
+                + '.'
+            );
+        }
+        config = mergeConfig(baseConfig, profiles[selectedProfile]);
+    }
+
+    const environment = loadEnvironment(selectedProfile);
+    config = expandEnvironment(config, environment);
 
     try {
         fluttergenConfigSchema.parse(config);
@@ -307,14 +381,10 @@ export function parsePubspecYaml(yamlContent: string): FluttergenConfig {
     const vars = {} as Record<string, any>;
     if (config.variables && typeof config.variables === 'object') {
         const entries = Object.entries(config.variables);
-        const hasEnv = entries.some(([_, v]) => typeof v === 'string' && v.startsWith('env.'));
-        const env = hasEnv && fs.existsSync('.env')
-            ? parseEnv(fs.readFileSync('.env', 'utf-8'))
-            : undefined;
         for (const [key, value] of entries) {
             if (typeof value === 'string' && value.startsWith('env.')) {
                 const envKey = value.slice(4);
-                const envValue = process.env[envKey] ?? env?.[envKey];
+                const envValue = environment[envKey];
                 if (envValue !== undefined) {
                     vars[key] = envValue;
                 } else {
@@ -340,6 +410,8 @@ export function parsePubspecYaml(yamlContent: string): FluttergenConfig {
         },
         variables: vars,
         workflows: config.workflows ?? {},
+        signing: config.signing as SigningConfig | undefined,
+        profile: selectedProfile,
         prescripts: config.prescripts?.filter(t => t),
         postscripts: config.postscripts?.filter(t => t),
     };

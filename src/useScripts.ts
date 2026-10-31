@@ -8,8 +8,8 @@ import {useYamlFile} from "fileHandler/useYamlFile.ts";
 import {KnownError} from "./knownError.ts";
 import {replaceInFile, useBuildGradle} from "fileHandler/useBuildGradle.ts";
 import {usePlist} from "fileHandler/usePlist.ts";
-import * as propFile from 'properties-file'
 import {usePropertiesFile} from "fileHandler/usePropertiesFile.ts";
+import {loadEnvironment} from "./env.ts";
 import {usePbxproj} from "fileHandler/usePbxproj.ts";
 import {usePlaceholderReplacer} from "fileHandler/usePlaceholderReplacer.ts";
 import {useImageGenerator} from "./useImageGenerator.ts";
@@ -465,7 +465,7 @@ export function useScripts(config: FluttergenConfig, section: 'prescripts' | 'po
             const predefinedFns = getFunctions();
             const functionPaths = collectFunctionPaths(predefinedFns);
             const builtInPaths = new Set(functionPaths);
-            const env = fs.existsSync('.env') ? propFile.getProperties(fs.readFileSync('.env')) : undefined;
+            const env = loadEnvironment(config.profile);
             const workflowStack: string[] = [];
             console.log(`- Running tasks from '${section}' section`);
 

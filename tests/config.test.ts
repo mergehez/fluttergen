@@ -208,6 +208,106 @@ fluttergen:
         expect(help).toContain('notificationIcon');
         expect(help).toContain('prescripts');
         expect(help).toContain('workflows');
+        expect(help).toContain('signing');
+        expect(help).toContain('profiles');
         expect(help).toContain('Required fields are marked');
+    });
+
+    test('merges named profiles over the base config', () => {
+        const config = parsePubspecYaml(`
+fluttergen:
+  info:
+    appName: Base App
+    bundleIdentifier: com.example.base
+    applicationId: com.example.base
+  icon:
+    path: assets/icon.png
+    bgColor: '#018290'
+  splash:
+    path: assets/splash.png
+    bgColor: '#00636E'
+  variables:
+    shared: base
+    baseOnly: yes
+  profiles:
+    dev:
+      info:
+        appName: Dev App
+        applicationId: com.example.dev
+      icon:
+        path:
+          light: assets/icon-dev.png
+          dark: assets/icon-dev-dark.png
+      variables:
+        shared: dev
+        devOnly: yes
+`, 'dev');
+
+        expect(config.info?.appName).toBe('Dev App');
+        expect(config.info?.bundleIdentifier).toBe('com.example.base');
+        expect(config.info?.applicationId).toBe('com.example.dev');
+        expect(config.icon.path).toEqual({light: 'assets/icon-dev.png', dark: 'assets/icon-dev-dark.png'});
+        expect(config.icon.bgColor.light).toBe('#018290');
+        expect(config.variables).toMatchObject({shared: 'dev', baseOnly: 'yes', devOnly: 'yes'});
+        expect(config.profile).toBe('dev');
+    });
+
+    test('reports missing profiles and supports the env variable', () => {
+        const yaml = minimalConfig(`  profiles:
+    dev:
+      info:
+        appName: Dev
+        bundleIdentifier: com.example.dev
+        applicationId: com.example.dev
+`);
+
+        expect(() => parsePubspecYaml(yaml, 'prod'))
+            .toThrow(/Profile 'prod' is not defined.*available: dev/);
+
+        process.env.FLUTTERGEN_PROFILE = 'dev';
+        try {
+            expect(parsePubspecYaml(yaml).info?.appName).toBe('Dev');
+        } finally {
+            delete process.env.FLUTTERGEN_PROFILE;
+        }
+    });
+
+    test('loads profile env files and expands ${VAR} in config values', async () => {
+        await inTempDir(() => {
+            writeFixture('.env', 'APP_NAME=Base App\nSECRET=base-secret\nAPP_SLUG=base\n');
+            writeFixture('.env.prod', 'APP_NAME=Prod App\nSECRET=prod-secret\nAPP_SLUG=prod\n');
+
+            const config = parsePubspecYaml(minimalConfig(`  profiles:
+    prod: {}
+  info:
+    appName: '\${APP_NAME}'
+    bundleIdentifier: com.example.\${APP_SLUG}
+    applicationId: com.example.app
+  signing:
+    android:
+      storePassword: '\${SECRET}'
+  variables:
+    who: env.APP_NAME
+    fallback: '\${MISSING:-default-value}'
+`), 'prod');
+
+            expect(config.info?.appName).toBe('Prod App');
+            expect(config.info?.bundleIdentifier).toBe('com.example.prod');
+            expect(config.signing?.android?.storePassword).toBe('prod-secret');
+            expect(config.variables.who).toBe('Prod App');
+            expect(config.variables.fallback).toBe('default-value');
+        });
+    });
+
+    test('expands environment but leaves scripts untouched', async () => {
+        await inTempDir(() => {
+            writeFixture('.env', 'VALUE=hello\n');
+
+            const config = parsePubspecYaml(minimalConfig(`  prescripts:
+    - runCommand('echo \${VALUE}')
+`));
+
+            expect(config.prescripts).toEqual(["runCommand('echo ${VALUE}')"]);
+        });
     });
 });

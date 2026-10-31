@@ -3,6 +3,7 @@
 import {getConfigurationOptionsForHelp, parsePubspecYamlFile} from "./yamlParser.ts";
 import {useImageGenerator} from "./useImageGenerator.ts";
 import {useInfoHandler} from "./useInfoHandler.ts";
+import {useSigning} from "./useSigning.ts";
 import fs from "fs";
 import path from "path";
 import {getBuiltInTaskNames, getPredefinedScripts, runBuiltInTask, useScripts} from "./useScripts.ts";
@@ -46,9 +47,25 @@ async function warnIfNewerVersionAvailable() {
     }
 }
 
+function getArgValue(names: string[]): string | undefined {
+    const args = process.argv.slice(2);
+    for (let i = 0; i < args.length; i++) {
+        for (const name of names) {
+            if (args[i] === name) {
+                return args[i + 1];
+            }
+            if (args[i].startsWith(`${name}=`)) {
+                return args[i].slice(name.length + 1);
+            }
+        }
+    }
+    return undefined;
+}
+
 async function main() {
 
-    const config = parsePubspecYamlFile('pubspec.yaml');
+    const profile = getArgValue(['--profile', '-p']);
+    const config = parsePubspecYamlFile('pubspec.yaml', profile);
     // console.log("Parsed Fluttergen Configuration:", config);
     if (config.prescripts) {
         await useScripts(config, 'prescripts').execute();
@@ -62,6 +79,10 @@ async function main() {
         namer.execute();
     } else {
         console.log("No renaming configuration found, skipping renaming step.");
+    }
+
+    if (config.signing) {
+        useSigning(config).execute();
     }
 
     if (config.postscripts) {
@@ -161,6 +182,7 @@ if (firstArg === 'run') {
         console.log(`help for fluttergen:
 [no flags]       Run fluttergen with configuration from pubspec.yaml
 run <task>       Run a built-in task (fluttergen run --list)
+--profile <name> Apply a named profile from the config
 --help, -h       Show help information
 --version, -v    Show current version
 

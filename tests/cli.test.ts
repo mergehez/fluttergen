@@ -40,6 +40,28 @@ describe('CLI', () => {
         expect(result.stdout).toContain('Configuration options:');
         expect(result.stdout).toContain('Available predefined scripts:');
         expect(result.stdout).toContain('notificationIcon');
+        expect(result.stdout).toContain('--profile <name>');
+    });
+
+    test('reports unknown profiles', () => {
+        const dir = makeTempDir();
+        writeFixture(path.join(dir, 'pubspec.yaml'), [
+            'fluttergen:',
+            '  icon:',
+            '    path: icon.png',
+            "    bgColor: '#fff'",
+            '  splash:',
+            '    path: splash.png',
+            "    bgColor: '#000'",
+            '  profiles:',
+            '    dev: {}',
+        ].join('\n'));
+
+        const result = runCli(['--profile', 'prod'], dir);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain("Profile 'prod' is not defined");
+        expect(result.stderr).toContain('available: dev');
     });
 
     test('fails clearly when pubspec.yaml is missing', () => {
