@@ -147,4 +147,25 @@ describe('useInfoHandler', () => {
                 .toContain('gradle-8.14-all.zip');
         });
     });
+
+    test('updates legacy Groovy build files', async () => {
+        await inTempDir(() => {
+            writeFixture('android/app/src/main/AndroidManifest.xml', manifest);
+            writeFixture('android/app/build.gradle', [
+                'android {',
+                '    defaultConfig {',
+                '        applicationId "com.old"',
+                '        minSdkVersion 21',
+                '    }',
+                '}',
+                '',
+            ].join('\n'));
+
+            useInfoHandler({...config, androidMinSdkVersion: 23, ndkVersion: undefined}).execute();
+
+            const gradle = fs.readFileSync('android/app/build.gradle', 'utf-8');
+            expect(gradle).toContain('applicationId "com.new.app"');
+            expect(gradle).toContain('minSdkVersion 23');
+        });
+    });
 });

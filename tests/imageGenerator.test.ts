@@ -1,12 +1,49 @@
 import {afterEach, describe, expect, test} from 'bun:test';
 import fs from 'fs';
+import path from 'path';
+import crypto from 'crypto';
 import sharp from 'sharp';
+import {DOMParser} from '@xmldom/xmldom';
+import xcode from 'xcode';
 import {cleanupTempDirs, inTempDir, writeFixture} from './helpers.ts';
 import {parsePubspecYaml} from '../src/yamlParser.ts';
 import {useImageGenerator} from '../src/useImageGenerator.ts';
 import {usePlist} from '../src/fileHandler/usePlist.ts';
 
 afterEach(cleanupTempDirs);
+
+function snapshotTree(dir: string) {
+    const entries: Record<string, string> = {};
+
+    function walk(current: string) {
+        for (const name of fs.readdirSync(current).sort()) {
+            const full = path.join(current, name);
+            const stat = fs.statSync(full);
+            if (stat.isDirectory()) {
+                walk(full);
+            } else {
+                entries[path.relative(dir, full)] = crypto.createHash('sha256')
+                    .update(fs.readFileSync(full))
+                    .digest('hex');
+            }
+        }
+    }
+
+    walk(dir);
+    return entries;
+}
+
+function parseXml(filePath: string) {
+    const errors: string[] = [];
+    const document = new DOMParser({
+        onError: (level, message) => {
+            errors.push(`${level}: ${message}`);
+        },
+    }).parseFromString(fs.readFileSync(filePath, 'utf-8'), 'text/xml');
+
+    expect(errors).toEqual([]);
+    return document;
+}
 
 const infoPlist = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -93,6 +130,26 @@ describe('useImageGenerator', () => {
             const metadata = await sharp(marketingIcon).metadata();
             expect(metadata.hasAlpha).toBe(false);
 
+            const smallIcon = await sharp('ios/Runner/Assets.xcassets/MyIcon.appiconset/MyIcon-20@2x.png').metadata();
+            expect(smallIcon.width).toBe(40);
+            expect(smallIcon.height).toBe(40);
+
+            for (const [density, size] of [['mdpi', 48], ['hdpi', 72], ['xxxhdpi', 192]] as const) {
+                const image = await sharp(`android/app/src/main/res/mipmap-${density}/my_icon.png`).metadata();
+                expect(image.width).toBe(size);
+                expect(image.height).toBe(size);
+            }
+
+            const legacyIcon = await sharp('android/app/src/main/res/mipmap-xxxhdpi/my_icon.png')
+                .ensureAlpha()
+                .raw()
+                .toBuffer({resolveWithObject: true});
+            expect(legacyIcon.data[3]).toBe(0); // rounded corner
+
+            const androidSplash = await sharp('android/app/src/main/res/drawable/splash_screen_image.png').metadata();
+            expect(androidSplash.width).toBe(600);
+            expect(androidSplash.height).toBe(300);
+
             expect(fs.existsSync('ios/Runner/Assets.xcassets/LaunchImage.imageset/LaunchImage@2x-dark.png')).toBe(true);
             expect(fs.readFileSync('ios/Runner/Base.lproj/LaunchScreen.storyboard', 'utf-8'))
                 .toContain('image="LaunchImage"');
@@ -114,6 +171,25 @@ describe('useImageGenerator', () => {
 
             // notificationIcon: false must not generate notification assets
             expect(fs.existsSync('android/app/src/main/res/mipmap-mdpi/my_icon_notification.png')).toBe(false);
+
+            // Validate the generated XML with a real parser.
+            for (const file of [
+                'android/app/src/main/AndroidManifest.xml',
+                'android/app/src/main/res/values/colors.xml',
+                'android/app/src/main/res/values/styles.xml',
+                'android/app/src/main/res/values-night/styles.xml',
+                'android/app/src/main/res/values-v31/styles.xml',
+                'android/app/src/main/res/values-night-v31/styles.xml',
+                'android/app/src/main/res/mipmap-anydpi-v26/my_icon.xml',
+                'android/app/src/main/res/drawable/my_icon_background.xml',
+                'android/app/src/main/res/drawable/splash_screen.xml',
+                'ios/Runner/Base.lproj/LaunchScreen.storyboard',
+            ]) {
+                expect(parseXml(file).documentElement.tagName).toBeTruthy();
+            }
+
+            // Validate the generated Xcode project with the xcode parser.
+            expect(() => xcode.project('ios/Runner.xcodeproj/project.pbxproj').parseSync()).not.toThrow();
         });
     });
 
@@ -179,6 +255,28 @@ fluttergen:
             const v31 = fs.readFileSync('android/app/src/main/res/values-v31/styles.xml', 'utf-8');
             expect(v31).toContain('@drawable/splash_screen_image');
             expect(fs.existsSync('android/app/src/main/res/drawable/splash_screen_image.png')).toBe(true);
+
+            const squareSplash = await sharp('android/app/src/main/res/drawable/splash_screen_image.png').metadata();
+            expect(squareSplash.width).toBe(600);
+            expect(squareSplash.height).toBe(600);
+        });
+    });
+
+    test('produces an identical tree when run twice', async () => {
+        await inTempDir(async () => {
+            writeFixture('ios/Runner/Info.plist', infoPlist);
+            writeFixture('ios/Runner.xcodeproj/project.pbxproj', pbxproj);
+            writeFixture('android/app/src/main/AndroidManifest.xml', manifest);
+            await writeImages();
+
+            const generator = useImageGenerator(parsePubspecYaml(configYaml));
+            await generator.execute();
+            const firstRun = snapshotTree('.');
+
+            await generator.execute();
+            const secondRun = snapshotTree('.');
+
+            expect(secondRun).toEqual(firstRun);
         });
     });
 });

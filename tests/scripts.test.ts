@@ -99,6 +99,17 @@ describe('useScripts', () => {
         });
     });
 
+    test('runs shell commands', async () => {
+        await inTempDir(() => {
+            useScripts(scriptConfig([
+                "runCommand('echo one > command.txt')",
+                "exec('echo two >> command.txt')",
+            ]), 'postscripts').execute();
+
+            expect(fs.readFileSync('command.txt', 'utf-8')).toBe('one\ntwo\n');
+        });
+    });
+
     test('runs file, plist, YAML and property helpers', async () => {
         await inTempDir(() => {
             writeFixture('source.txt', 'hello');

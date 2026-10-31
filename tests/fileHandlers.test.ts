@@ -147,6 +147,34 @@ describe('usePlist', () => {
         plist.set('Blob', 'data', Buffer.from('abc'));
         expect(plist.getSimple('Blob')).toBe(Buffer.from('abc').toString('base64'));
     });
+
+    test('preserves complex real-world plist structures', () => {
+        const {plist} = writePlist([
+            '<key>CFBundleVersion</key><string>1</string>',
+            '<key>Build</key><string>$(CURRENT_PROJECT_VERSION)</string>',
+            '<key>UIApplicationSceneManifest</key>',
+            '<dict>',
+            '    <key>UIApplicationSupportsMultipleScenes</key>',
+            '    <false/>',
+            '</dict>',
+            '<key>CFBundleURLTypes</key>',
+            '<array>',
+            '    <dict>',
+            '        <key>CFBundleURLSchemes</key>',
+            '        <array><string>myapp</string></array>',
+            '    </dict>',
+            '</array>',
+        ].join('\n'));
+
+        plist.set('UIApplicationSceneManifest.UIApplicationSupportsMultipleScenes', 'bool', true);
+
+        expect(plist.getSimple('UIApplicationSceneManifest.UIApplicationSupportsMultipleScenes')).toBe('true');
+        expect(plist.getSimple('Build')).toBe('$(CURRENT_PROJECT_VERSION)');
+        expect(plist.getComplex('CFBundleURLTypes')).toEqual([
+            {CFBundleURLSchemes: ['myapp']},
+        ]);
+        expect(plist.getSimple('CFBundleVersion')).toBe('1');
+    });
 });
 
 describe('useAndroidManifest', () => {
@@ -252,6 +280,45 @@ describe('useAndroidManifest', () => {
             expect(useAndroidManifest()).toBeUndefined();
         });
     });
+
+    test('handles a single-line application tag', () => {
+        inTempDir(() => {
+            writeFixture('android/app/src/main/AndroidManifest.xml', [
+                '<manifest xmlns:android="http://schemas.android.com/apk/res/android">',
+                '<application android:label="Old"></application>',
+                '</manifest>',
+                '',
+            ].join('\n'));
+
+            const file = useAndroidManifest()!;
+            file.ensureAttribute('application', 'android:label', 'New');
+            file.ensureAttribute('application', 'android:icon', '@mipmap/icon');
+
+            const content = fs.readFileSync('android/app/src/main/AndroidManifest.xml', 'utf-8');
+            expect(content).toContain('android:label="New"');
+            expect(content).toContain('android:icon="@mipmap/icon"');
+        });
+    });
+
+    test('handles CRLF line endings', () => {
+        inTempDir(() => {
+            const crlf = [
+                '<manifest',
+                '        xmlns:android="http://schemas.android.com/apk/res/android">',
+                '    <application',
+                '            android:label="Old">',
+                '    </application>',
+                '</manifest>',
+                '',
+            ].join('\r\n');
+            writeFixture('android/app/src/main/AndroidManifest.xml', crlf);
+
+            useAndroidManifest()!.ensureAttribute('application', 'android:label', 'New');
+
+            const content = fs.readFileSync('android/app/src/main/AndroidManifest.xml', 'utf-8');
+            expect(content).toContain('android:label="New"');
+        });
+    });
 });
 
 describe('useAndroidXml', () => {
@@ -301,6 +368,32 @@ describe('useAndroidXml', () => {
         fs.writeFileSync(file, '<resources>\n');
 
         expect(() => setColorResource(file, 'brand', '#123456')).toThrow(/</);
+    });
+
+    test('handles CRLF colors.xml and styles.xml files', () => {
+        const dir = makeTempDir();
+        const colors = path.join(dir, 'colors.xml');
+        const styles = path.join(dir, 'styles.xml');
+
+        fs.writeFileSync(colors, '<resources>\r\n    <color name="brand">#000000</color>\r\n</resources>\r\n');
+        fs.writeFileSync(styles, [
+            '<resources>',
+            '    <style name="LaunchTheme" parent="Theme.Light">',
+            '        <item name="android:windowBackground">@drawable/old</item>',
+            '    </style>',
+            '</resources>',
+            '',
+        ].join('\r\n'));
+
+        setColorResource(colors, 'brand', '#123456');
+        setColorResource(colors, 'accent', '#abcdef');
+        setStyleItem(styles, 'LaunchTheme', 'android:windowBackground', '@drawable/new');
+
+        const colorsContent = fs.readFileSync(colors, 'utf-8');
+        expect(colorsContent).toContain('<color name="brand">#123456</color>');
+        expect(colorsContent).toContain('<color name="accent">#abcdef</color>');
+        expect(fs.readFileSync(styles, 'utf-8'))
+            .toContain('<item name="android:windowBackground">@drawable/new</item>');
     });
 });
 
