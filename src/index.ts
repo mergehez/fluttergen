@@ -5,7 +5,7 @@ import {useImageGenerator} from "./useImageGenerator.ts";
 import {useInfoHandler} from "./useInfoHandler.ts";
 import fs from "fs";
 import path from "path";
-import {getPredefinedScripts, useScripts} from "./useScripts.ts";
+import {getBuiltInTaskNames, getPredefinedScripts, runBuiltInTask, useScripts} from "./useScripts.ts";
 import {KnownError} from "./knownError.ts";
 
 function currentVersion() {
@@ -72,11 +72,95 @@ async function main() {
     process.exit(0);
 }
 
+function parseTaskOptions(args: string[]): Record<string, any> {
+    const options: Record<string, any> = {};
 
-if (process.argv.includes('--help') || process.argv.includes('-h')) {
+    for (let i = 0; i < args.length; i++) {
+        const arg = args[i];
+        if (!arg.startsWith('--')) continue;
+
+        const equalsIndex = arg.indexOf('=');
+        let key: string;
+        let value: any;
+
+        if (equalsIndex !== -1) {
+            key = arg.slice(2, equalsIndex);
+            value = arg.slice(equalsIndex + 1);
+        } else {
+            key = arg.slice(2);
+            const next = args[i + 1];
+            if (next !== undefined && !next.startsWith('--')) {
+                value = next;
+                i++;
+            } else {
+                value = true;
+            }
+        }
+
+        key = key.replace(/-([a-z])/g, (_match, char: string) => char.toUpperCase());
+
+        if (value === 'true') value = true;
+        else if (value === 'false') value = false;
+        else if (typeof value === 'string' && /^-?\d+$/.test(value)) value = Number(value);
+
+        if (key === 'args' && typeof value === 'string') {
+            value = value.split(/\s+/).filter(Boolean);
+        }
+
+        options[key] = value;
+    }
+
+    return options;
+}
+
+function runTaskCommand(args: string[]) {
+    const usage = `usage: fluttergen run <task> [--key=value]
+
+Examples:
+  fluttergen run --list
+  fluttergen run flutter.clean
+  fluttergen run ios.pods.reset
+  fluttergen run build.apk --mode=release --flavor=prod`;
+
+    if (args.includes('--help') || args.includes('-h')) {
+        console.log(usage);
+        process.exit(0);
+    }
+
+    if (args[0] === '--list') {
+        console.log('Built-in tasks:\n' + getBuiltInTaskNames().map(name => `- ${name}`).join('\n'));
+        process.exit(0);
+    }
+
+    const taskName = args[0];
+    if (!taskName || taskName.startsWith('-')) {
+        console.error(usage);
+        process.exit(1);
+    }
+
+    try {
+        runBuiltInTask(taskName, parseTaskOptions(args.slice(1)));
+        process.exit(0);
+    } catch (e) {
+        if (e instanceof KnownError) {
+            console.error("Error:", e.message);
+        } else {
+            console.error("Error during execution:", (e as Error).message ?? String(e));
+        }
+        process.exit(1);
+    }
+}
+
+
+const firstArg = process.argv[2];
+
+if (firstArg === 'run') {
+    runTaskCommand(process.argv.slice(3));
+} else if (process.argv.includes('--help') || process.argv.includes('-h')) {
     (async () => {
         console.log(`help for fluttergen:
 [no flags]       Run fluttergen with configuration from pubspec.yaml
+run <task>       Run a built-in task (fluttergen run --list)
 --help, -h       Show help information
 --version, -v    Show current version
 

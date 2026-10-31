@@ -70,4 +70,38 @@ describe('CLI', () => {
         const result = runCli(['--version'], makeTempDir());
         expect(result.stdout.trim().split('\n')).toHaveLength(1);
     });
+
+    test('lists built-in tasks', () => {
+        const result = runCli(['run', '--list'], makeTempDir());
+
+        expect(result.status).toBe(0);
+        expect(result.stdout).toContain('flutter.clean');
+        expect(result.stdout).toContain('ios.pods.reset');
+        expect(result.stdout).toContain('build.apk');
+    });
+
+    test('shows usage for run', () => {
+        const result = runCli(['run', '--help'], makeTempDir());
+
+        expect(result.status).toBe(0);
+        expect(result.stdout).toContain('fluttergen run <task>');
+        expect(result.stdout).toContain('fluttergen run build.apk');
+    });
+
+    test('runs a built-in task from the CLI', () => {
+        const dir = makeTempDir();
+        writeFixture(path.join(dir, 'pubspec.yaml'), 'name: app\nversion: 1.2.3+4\n');
+
+        const result = runCli(['run', 'versionUp'], dir);
+
+        expect(result.status).toBe(0);
+        expect(fs.readFileSync(path.join(dir, 'pubspec.yaml'), 'utf-8')).toContain('version: 1.2.4+5');
+    });
+
+    test('fails for unknown built-in tasks', () => {
+        const result = runCli(['run', 'does.not.exist'], makeTempDir());
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain("Unknown task 'does.not.exist'");
+    });
 });
