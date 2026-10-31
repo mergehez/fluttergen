@@ -5,7 +5,7 @@ export function useIosContentsJson(outputPath: string) {
     fs.mkdirSync(path.dirname(outputPath), {recursive: true});
     return {
         images: [] as any[],
-        add: function (idiom: string, size: string | undefined, scale: string, filename: string, appearances?: 'dark' | 'monochrome') {
+        add: function (idiom: string, size: string | undefined, scale: string, filename: string, appearances?: 'dark' | 'tinted' | 'monochrome') {
             this.images.push({
                 idiom,
                 size,
@@ -13,8 +13,8 @@ export function useIosContentsJson(outputPath: string) {
                 filename,
                 appearances: appearances === 'dark'
                     ? [{appearance: "luminosity", value: "dark"}]
-                    : appearances === 'monochrome'
-                        ? [{appearance: "monochromatic"}]
+                    : appearances === 'tinted' || appearances === 'monochrome'
+                        ? [{appearance: "luminosity", value: "tinted"}]
                         : appearances,
             });
         },

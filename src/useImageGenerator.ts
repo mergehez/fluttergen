@@ -51,7 +51,7 @@ export function useImageGenerator(cfg: FluttergenConfig) {
             size: number;
             scale: number;
             suffix?: string;
-            appearances?: 'dark';
+            appearances?: 'dark' | 'tinted';
         }
 
         async function resizeAndAdd(t: T, monochromeAsWell = false) {
@@ -80,7 +80,7 @@ export function useImageGenerator(cfg: FluttergenConfig) {
                     padding: 0,
                     grayscale: true
                 });
-                iconContents.add(t.idiom, `${t.size}x${t.size}`, `${t.scale}x`, monoFileName, 'monochrome');
+                iconContents.add(t.idiom, `${t.size}x${t.size}`, `${t.scale}x`, monoFileName, 'tinted');
             }
         }
 
