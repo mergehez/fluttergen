@@ -1,7 +1,7 @@
 import YAML from "yaml";
 import fs from 'fs';
 import * as z from 'zod';
-import {useYamlFile} from "fileHandler/useYamlFile.ts";
+import {parse as parseEnv} from 'dotenv';
 import {KnownError} from "./knownError.ts";
 import {ZodType} from "zod";
 
@@ -118,6 +118,88 @@ export function getConfigurationOptionsForHelp(): string {
 
 type PrettyPrint<T> = { [K in keyof T]: T[K]; } & {};
 
+/**
+ * Evaluates a simple arithmetic expression without using `eval`.
+ * Returns `undefined` when the input is not a valid arithmetic expression.
+ */
+function evaluateArithmetic(input: string): number | undefined {
+    if (!/^[\d\s.+\-*/%()]+$/.test(input)) return undefined;
+
+    let index = 0;
+
+    function skipWhitespace() {
+        while (index < input.length && /\s/.test(input[index])) index++;
+    }
+
+    function parseNumber(): number {
+        skipWhitespace();
+        if (input[index] === '-' || input[index] === '+') {
+            const sign = input[index] === '-' ? -1 : 1;
+            index++;
+            return sign * parseNumber();
+        }
+        if (input[index] === '(') {
+            index++;
+            const value = parseExpression();
+            skipWhitespace();
+            if (input[index] !== ')') throw new Error('Missing closing parenthesis');
+            index++;
+            return value;
+        }
+        const match = /^\d*\.?\d+/.exec(input.slice(index));
+        if (!match) throw new Error('Number expected');
+        index += match[0].length;
+        return parseFloat(match[0]);
+    }
+
+    function parseTerm(): number {
+        let value = parseNumber();
+        for (; ;) {
+            skipWhitespace();
+            const operator = input[index];
+            if (operator !== '*' && operator !== '/' && operator !== '%') break;
+            index++;
+            const right = parseNumber();
+            if ((operator === '/' || operator === '%') && right === 0) throw new Error('Division by zero');
+            value = operator === '*' ? value * right : operator === '/' ? value / right : value % right;
+        }
+        return value;
+    }
+
+    function parseExpression(): number {
+        let value = parseTerm();
+        for (; ;) {
+            skipWhitespace();
+            const operator = input[index];
+            if (operator !== '+' && operator !== '-') break;
+            index++;
+            const right = parseTerm();
+            value = operator === '+' ? value + right : value - right;
+        }
+        return value;
+    }
+
+    try {
+        const result = parseExpression();
+        skipWhitespace();
+        if (index !== input.length || !Number.isFinite(result)) return undefined;
+        return result;
+    } catch {
+        return undefined;
+    }
+}
+
+/**
+ * Only treat values as arithmetic when they clearly look like an expression.
+ * This prevents values such as `2024-01-01` from being silently converted to `2022`.
+ */
+function evaluateConfiguredValue(value: string): string | number {
+    const looksLikeExpression = /[+*/%()]/.test(value) || /\s-\s/.test(value);
+    if (!looksLikeExpression) return value;
+    const result = evaluateArithmetic(value);
+    return result === undefined ? value : result;
+}
+
 export type AppInfoConfig = {
     appName: string;
     bundleIdentifier: string;
@@ -143,7 +225,7 @@ export type FluttergenConfig = {
     notificationIcon: false | {
         path: string;
         tintColor: string;
-        name: string;
+        name?: string;
         padding: number;
     }
     prescripts: (string | Record<string, any>)[] | undefined;
@@ -172,7 +254,12 @@ export function parsePubspecYaml(yamlContent: string): FluttergenConfig {
     try {
         fluttergenConfigSchema.parse(config);
     } catch (e) {
-        console.log(config)
+        if (e instanceof z.ZodError) {
+            const issues = e.issues
+                .map(issue => `  - ${issue.path.length ? issue.path.join('.') : '(root)'}: ${issue.message}`)
+                .join('\n');
+            throw new KnownError(`Invalid 'fluttergen' configuration in pubspec.yaml:\n${issues}`);
+        }
         throw e;
     }
 
@@ -217,19 +304,22 @@ export function parsePubspecYaml(yamlContent: string): FluttergenConfig {
     if (config.variables && typeof config.variables === 'object') {
         const entries = Object.entries(config.variables);
         const hasEnv = entries.some(([_, v]) => typeof v === 'string' && v.startsWith('env.'));
-        const env = hasEnv ? useYamlFile('.env') : undefined;
-        for (const [key, value] of Object.entries(config.variables)) {
+        const env = hasEnv && fs.existsSync('.env')
+            ? parseEnv(fs.readFileSync('.env', 'utf-8'))
+            : undefined;
+        for (const [key, value] of entries) {
             if (typeof value === 'string' && value.startsWith('env.')) {
                 const envKey = value.slice(4);
-                const envValue = env?.get(envKey);
+                const envValue = process.env[envKey] ?? env?.[envKey];
                 if (envValue !== undefined) {
                     vars[key] = envValue;
                 } else {
                     throw new KnownError(`Environment variable '${envKey}' not found for configuration variable '${key}'.`);
                 }
+            } else if (typeof value === 'string') {
+                vars[key] = evaluateConfiguredValue(value);
             } else {
-                // if the value is a string containing special characters, eval it
-                vars[key] = typeof value === 'string' && /[+\-*/()%]/.test(value) ? eval(value) : value;
+                vars[key] = value;
             }
         }
     }
@@ -241,7 +331,7 @@ export function parsePubspecYaml(yamlContent: string): FluttergenConfig {
         notificationIcon: config.notificationIcon === false ? false : {
             path: config.notificationIcon?.path || icon.path.light,
             tintColor: config.notificationIcon?.tintColor ?? '#FFFFFF',
-            name: config.notificationIcon?.name || icon.name.android,
+            name: config.notificationIcon?.name,
             padding: config.notificationIcon?.padding ?? 0.0,
         },
         variables: vars,
