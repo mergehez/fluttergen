@@ -15,13 +15,27 @@ function currentVersion() {
     return packageJson.version;
 }
 
+function compareVersions(a: string, b: string): number {
+    const partsA = a.split('.').map(part => parseInt(part, 10) || 0);
+    const partsB = b.split('.').map(part => parseInt(part, 10) || 0);
+    for (let i = 0; i < Math.max(partsA.length, partsB.length); i++) {
+        const left = partsA[i] ?? 0;
+        const right = partsB[i] ?? 0;
+        if (left !== right) return left - right;
+    }
+    return 0;
+}
+
 async function warnIfNewerVersionAvailable() {
     const curr = currentVersion();
     try {
-        const res = await fetch('https://registry.npmjs.org/fluttergen/latest');
-        const data = await res.json();
+        const res = await fetch('https://registry.npmjs.org/fluttergen/latest', {
+            signal: AbortSignal.timeout(1500),
+        });
+        if (!res.ok) return;
+        const data = await res.json() as { version?: string };
         const latest = data.version;
-        if (latest !== curr) {
+        if (latest && compareVersions(latest, curr) > 0) {
             console.log();
             console.warn(`A newer version of fluttergen is available (${latest}). You are using version ${curr}. Consider updating to the latest version.`);
         }
@@ -70,15 +84,6 @@ ${getConfigurationOptionsForHelp()}
 Available predefined scripts:
 ${getPredefinedScripts()}
 `);
-        await warnIfNewerVersionAvailable();
-        process.exit(0);
-    })().catch(e => {
-        console.error("Error during execution:", e);
-        process.exit(1);
-    });
-} else if (process.argv.includes('--version') || process.argv.includes('-v')) {
-    (async () => {
-        console.log(`fluttergen current version ${currentVersion()}`);
         await warnIfNewerVersionAvailable();
         process.exit(0);
     })().catch(e => {
