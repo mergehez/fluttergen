@@ -31,19 +31,30 @@
   `signing:` block that writes Android `key.properties` + `signing.gradle` and iOS
   team/entitlements in `project.pbxproj`.
 
+- [x] **First-class release workflow (#4)**
+  `release:` config and `fluttergen release` with patch/minor/major bumps, build-number
+  sync to Android/iOS, git tags with templates, changelog entries, optional builds and
+  `--dry-run`.
+
+- [x] **Safe and selective execution (#5)**
+  `--only`/`--skip` phases, `--platform`, `--dry-run`, `--diff`, `--backup`/`--restore`.
+  Diffs redact sensitive files; dry runs revert all watched changes and skip scripts.
+
+- [x] **JSON Schema for the config**
+  `fluttergen schema` plus a generated `fluttergen.schema.json` for IDE autocomplete and
+  config validation.
+
+- [x] **`fluttergen doctor`**
+  Checks runtime, config, asset dimensions, platforms, signing files and
+  Flutter/Git/Android SDK/Xcode/CocoaPods availability.
+
+- [x] **Permissions manager**
+  `permissions.android` writes manifest permissions; `permissions.ios` writes usage
+  descriptions (known aliases plus raw `NS*` keys).
+
 ## Tasks
 
-- [ ] **First-class release workflow (#4)**
-  `release:` block and `fluttergen release` for version bumping, build-number sync across
-  pubspec/Android/iOS, git tagging, optional changelog and builds, with `--dry-run`.
-
-- [ ] **Safe and selective execution (#5)**
-  `--only`/`--skip`, `--platform`, `--dry-run`, `--diff`, `--backup`/`--restore`.
-  Removes manual backup/restore groups and makes long pipelines safe to run.
-
-- [ ] **JSON Schema for the config** — IDE autocomplete and validation in `pubspec.yaml`.
-- [ ] **`fluttergen doctor`** — validate config, required files, asset dimensions, Flutter/Xcode/Android SDK availability.
-- [ ] **Permissions manager** — edit `AndroidManifest.xml` and add iOS usage descriptions in one place.
+All approved tasks are complete. See **Open ideas** below for unapproved follow-ups.
 
 ## Open ideas
 

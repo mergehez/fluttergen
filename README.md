@@ -29,6 +29,29 @@ npx fluttergen
 
 Set `FLUTTERGEN_NO_UPDATE_CHECK=1` to skip the npm update check (handy for CI or offline environments).
 
+### Commands and flags
+
+```bash
+fluttergen                         # generate with pubspec.yaml config
+fluttergen --profile prod          # apply a named profile
+fluttergen --only icons,splash     # run selected phases
+fluttergen --skip splash           # skip phases
+fluttergen --platform ios          # limit to one platform
+fluttergen --dry-run --diff        # preview changes, then restore files
+fluttergen --backup                # snapshot watched files first
+fluttergen --restore               # restore the last backup
+
+fluttergen release --minor         # bump version and sync builds
+fluttergen release --dry-run       # preview a release
+fluttergen doctor                  # check project and toolchain
+fluttergen schema --output fluttergen.schema.json
+fluttergen run --list              # list built-in tasks
+```
+
+Selectable phases: `info`, `icons`, `splash`, `permissions`, `signing`, `scripts`.
+`--dry-run` skips scripts/build commands and reverts file changes after printing the diff.
+Backups are stored in `.fluttergen/` (add it to your `.gitignore`).
+
 The tool will automatically:
 
 - Rename your app (iOS and Android)
@@ -320,6 +343,72 @@ The `signing` block writes:
   with code signing enabled.
 
 Keep secret values in `.env.*` files or CI variables, never in `pubspec.yaml`.
+
+### Permissions
+
+Declare permissions once for both platforms:
+
+```yaml
+fluttergen:
+  permissions:
+    android:
+      - CAMERA
+      - POST_NOTIFICATIONS
+      - android.permission.INTERNET
+    ios:
+      camera: We use the camera to scan documents.
+      photoLibrary: true          # uses a default description
+      NSFaceIDUsageDescription: We use Face ID to unlock the app.
+```
+
+Android permissions are added to `AndroidManifest.xml` without duplicates.
+iOS keys map to the corresponding `NS*UsageDescription` entries; raw keys starting
+with `NS` are accepted, `true` uses a default description, and `false` skips the entry.
+
+### Release workflow
+
+```yaml
+fluttergen:
+  release:
+    bump: patch
+    syncBuildNumber: true
+    tag: v{version}
+    changelog: true
+    build: [apk]
+```
+
+```bash
+fluttergen release --minor --tag --build=apk,ipa
+fluttergen release --dry-run
+```
+
+- Bumps `pubspec.yaml`, syncs `versionName`/`versionCode` on Android and
+  `CFBundleShortVersionString`/`CFBundleVersion` on iOS.
+- Tag templates support `{version}`, `{versionName}` and `{build}`.
+- `changelog: true` writes a generated entry; a string uses custom text.
+- Optional builds run after the bump; `--dry-run` changes nothing.
+
+### Doctor
+
+```bash
+fluttergen doctor
+```
+
+Checks the Node/Bun runtime, config validity, icon/splash files and dimensions,
+project platforms, signing files, and Flutter/Git/Android SDK/Xcode/CocoaPods
+availability. Exits with status 1 when there are errors.
+
+### JSON Schema
+
+```bash
+fluttergen schema --output fluttergen.schema.json
+```
+
+Add IDE autocomplete with:
+
+```yaml
+# yaml-language-server: $schema=./fluttergen.schema.json
+```
 
 ### Built-in tasks
 
