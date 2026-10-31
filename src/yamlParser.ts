@@ -5,7 +5,7 @@ import {expandEnvironment, loadEnvironment} from "./env.ts";
 import {KnownError} from "./knownError.ts";
 import {ZodType} from "zod";
 
-const fluttergenConfigSchema = z.object({
+export const fluttergenConfigSchema = z.object({
     info: z.object({
         appName: z.string().describe('Display name of your app'),
         bundleIdentifier: z.string().describe('iOS bundle identifier (e.g., com.my_company.my_app)'),
@@ -57,6 +57,17 @@ const fluttergenConfigSchema = z.object({
             entitlementsFile: z.string().optional().describe('Entitlements file name (default: Runner.entitlements)'),
         }).optional().describe('iOS signing configuration'),
     }).optional().describe('Signing and credentials configuration'),
+    permissions: z.object({
+        android: z.array(z.string()).optional().describe('Android permissions (e.g. CAMERA or android.permission.CAMERA)'),
+        ios: z.record(z.string(), z.union([z.string(), z.boolean()])).optional().describe('iOS usage descriptions keyed by permission name or Info.plist key'),
+    }).optional().describe('Application permissions and usage descriptions'),
+    release: z.object({
+        bump: z.union([z.enum(['patch', 'minor', 'major']), z.literal(false)]).optional().describe('Version bump strategy'),
+        syncBuildNumber: z.boolean().optional().describe('Sync the build number to Android and iOS'),
+        tag: z.union([z.boolean(), z.string()]).optional().describe('Create a git tag (true or a template like v{version})'),
+        changelog: z.union([z.boolean(), z.string()]).optional().describe('Update CHANGELOG.md (true or a custom entry)'),
+        build: z.union([z.string(), z.array(z.string())]).optional().describe('Builds to run after releasing (apk, appbundle, ipa)'),
+    }).optional().describe('Release workflow configuration'),
     prescripts: z.array(z.any()).optional().describe('Scripts to execute before the main fluttergen operations'),
     postscripts: z.array(z.any()).optional().describe('Scripts to execute after the main fluttergen operations'),
 });
@@ -249,6 +260,17 @@ export type SigningConfig = {
     android?: AndroidSigningConfig;
     ios?: IosSigningConfig;
 }
+export type PermissionsConfig = {
+    android?: string[];
+    ios?: Record<string, string | boolean>;
+}
+export type ReleaseConfig = {
+    bump?: 'patch' | 'minor' | 'major' | false;
+    syncBuildNumber?: boolean;
+    tag?: boolean | string;
+    changelog?: boolean | string;
+    build?: string | string[];
+}
 export type FluttergenConfig = {
     variables: Record<string, any>;
     info: AppInfoConfig | undefined;
@@ -262,6 +284,8 @@ export type FluttergenConfig = {
     }
     workflows: Record<string, WorkflowStep[]>;
     signing: SigningConfig | undefined;
+    permissions: PermissionsConfig | undefined;
+    release: ReleaseConfig | undefined;
     profile: string | undefined;
     prescripts: (string | Record<string, any>)[] | undefined;
     postscripts: (string | Record<string, any>)[] | undefined;
@@ -411,6 +435,8 @@ export function parsePubspecYaml(yamlContent: string, profile?: string): Flutter
         variables: vars,
         workflows: config.workflows ?? {},
         signing: config.signing as SigningConfig | undefined,
+        permissions: config.permissions as PermissionsConfig | undefined,
+        release: config.release as ReleaseConfig | undefined,
         profile: selectedProfile,
         prescripts: config.prescripts?.filter(t => t),
         postscripts: config.postscripts?.filter(t => t),

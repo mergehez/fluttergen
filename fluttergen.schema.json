@@ -1,0 +1,492 @@
+{
+  "$id": "https://raw.githubusercontent.com/mergehez/fluttergen/main/fluttergen.schema.json",
+  "title": "fluttergen configuration",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "info": {
+      "description": "App metadata configuration for iOS and Android platforms",
+      "type": "object",
+      "properties": {
+        "appName": {
+          "description": "Display name of your app",
+          "type": "string"
+        },
+        "bundleIdentifier": {
+          "description": "iOS bundle identifier (e.g., com.my_company.my_app)",
+          "type": "string"
+        },
+        "applicationId": {
+          "description": "Android application ID (e.g., com.my_company.my_app)",
+          "type": "string"
+        },
+        "iosDevelopmentTeam": {
+          "description": "iOS development team ID (e.g., ABCDE12345)",
+          "type": "string"
+        },
+        "iosMinVersion": {
+          "description": "iOS minimum deployment target (e.g., \"13.0\")",
+          "type": "string"
+        },
+        "androidMinSdkVersion": {
+          "description": "Android minimum SDK version (e.g., 21)",
+          "type": "number"
+        },
+        "ndkVersion": {
+          "description": "Android NDK version",
+          "type": "string"
+        },
+        "gradleVersion": {
+          "description": "Gradle version (e.g., \"8.14\")",
+          "type": "string"
+        }
+      },
+      "required": [
+        "appName",
+        "bundleIdentifier",
+        "applicationId"
+      ],
+      "additionalProperties": false
+    },
+    "icon": {
+      "description": "App icon configuration for iOS and Android",
+      "type": "object",
+      "properties": {
+        "path": {
+          "description": "Path to icon image file or object with light and dark properties",
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "light": {
+                  "type": "string"
+                },
+                "dark": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "light"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "bgColor": {
+          "description": "Background color in hex format (e.g., #018290) or object with light and dark properties",
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "light": {
+                  "type": "string"
+                },
+                "dark": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "light",
+                "dark"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "name": {
+          "description": "Icon name string or object with android and ios properties",
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "android": {
+                  "type": "string"
+                },
+                "ios": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "android",
+                "ios"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "borderRadius": {
+          "description": "Corner radius from 0.0 to 1.0 (0 = square, 1 = circle)",
+          "type": "number"
+        },
+        "padding": {
+          "description": "Padding value or object with android and ios properties",
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "android": {
+                  "type": "number"
+                },
+                "ios": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "android",
+                "ios"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        }
+      },
+      "required": [
+        "path",
+        "bgColor"
+      ],
+      "additionalProperties": false
+    },
+    "splash": {
+      "description": "Splash screen configuration for iOS and Android",
+      "type": "object",
+      "properties": {
+        "path": {
+          "description": "Path to splash image file or object with light and dark properties",
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "light": {
+                  "type": "string"
+                },
+                "dark": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "light"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "bgColor": {
+          "description": "Background color in hex format (e.g., #00636E) or object with light and dark properties",
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "light": {
+                  "type": "string"
+                },
+                "dark": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "light",
+                "dark"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "name": {
+          "description": "Splash name string or object with android and ios properties",
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "android": {
+                  "type": "string"
+                },
+                "ios": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "android",
+                "ios"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "borderRadius": {
+          "description": "Corner radius from 0.0 to 1.0",
+          "type": "number"
+        },
+        "padding": {
+          "description": "Padding value or object with android and ios properties",
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "android": {
+                  "type": "number"
+                },
+                "ios": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "android",
+                "ios"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        }
+      },
+      "required": [
+        "path",
+        "bgColor"
+      ],
+      "additionalProperties": false
+    },
+    "notificationIcon": {
+      "description": "Android notification icon configuration (set to false to disable)",
+      "anyOf": [
+        {
+          "type": "boolean",
+          "const": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "path": {
+              "description": "Path to notification icon image",
+              "type": "string"
+            },
+            "tintColor": {
+              "description": "Tint color in hex format (default: #FFFFFF)",
+              "type": "string"
+            },
+            "name": {
+              "description": "Notification icon resource name",
+              "type": "string"
+            },
+            "padding": {
+              "description": "Padding value",
+              "type": "number"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "variables": {
+      "description": "Reusable variables that can be referenced in scripts"
+    },
+    "workflows": {
+      "description": "Named reusable workflow steps",
+      "type": "object",
+      "propertyNames": {
+        "type": "string"
+      },
+      "additionalProperties": {
+        "type": "array",
+        "items": {}
+      }
+    },
+    "profiles": {
+      "description": "Named configuration overrides selected with --profile",
+      "type": "object",
+      "propertyNames": {
+        "type": "string"
+      },
+      "additionalProperties": {}
+    },
+    "signing": {
+      "description": "Signing and credentials configuration",
+      "type": "object",
+      "properties": {
+        "android": {
+          "description": "Android signing configuration",
+          "type": "object",
+          "properties": {
+            "keystore": {
+              "description": "Path to the keystore file (alias for storeFile)",
+              "type": "string"
+            },
+            "storeFile": {
+              "description": "Path to the keystore file",
+              "type": "string"
+            },
+            "storePassword": {
+              "description": "Keystore password",
+              "type": "string"
+            },
+            "keyAlias": {
+              "description": "Key alias",
+              "type": "string"
+            },
+            "keyPassword": {
+              "description": "Key password",
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        "ios": {
+          "description": "iOS signing configuration",
+          "type": "object",
+          "properties": {
+            "team": {
+              "description": "Apple development team ID",
+              "type": "string"
+            },
+            "entitlements": {
+              "description": "Entitlements plist values",
+              "type": "object",
+              "propertyNames": {
+                "type": "string"
+              },
+              "additionalProperties": {}
+            },
+            "entitlementsFile": {
+              "description": "Entitlements file name (default: Runner.entitlements)",
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "permissions": {
+      "description": "Application permissions and usage descriptions",
+      "type": "object",
+      "properties": {
+        "android": {
+          "description": "Android permissions (e.g. CAMERA or android.permission.CAMERA)",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "ios": {
+          "description": "iOS usage descriptions keyed by permission name or Info.plist key",
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "boolean"
+              }
+            ]
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "release": {
+      "description": "Release workflow configuration",
+      "type": "object",
+      "properties": {
+        "bump": {
+          "description": "Version bump strategy",
+          "anyOf": [
+            {
+              "type": "string",
+              "enum": [
+                "patch",
+                "minor",
+                "major"
+              ]
+            },
+            {
+              "type": "boolean",
+              "const": false
+            }
+          ]
+        },
+        "syncBuildNumber": {
+          "description": "Sync the build number to Android and iOS",
+          "type": "boolean"
+        },
+        "tag": {
+          "description": "Create a git tag (true or a template like v{version})",
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "changelog": {
+          "description": "Update CHANGELOG.md (true or a custom entry)",
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "build": {
+          "description": "Builds to run after releasing (apk, appbundle, ipa)",
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "prescripts": {
+      "description": "Scripts to execute before the main fluttergen operations",
+      "type": "array",
+      "items": {}
+    },
+    "postscripts": {
+      "description": "Scripts to execute after the main fluttergen operations",
+      "type": "array",
+      "items": {}
+    }
+  },
+  "required": [
+    "icon",
+    "splash"
+  ],
+  "additionalProperties": false
+}

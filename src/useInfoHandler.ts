@@ -32,63 +32,71 @@ export function normalizeGradleDistribution(input: string): string {
 
 export function useInfoHandler(config: AppInfoConfig) {
     return {
-        execute: function () {
-            // update app name in AndroidManifest.xml
-            const androidManifest = useAndroidManifest();
-            if (androidManifest) {
-                androidManifest.ensureApplicationLabel(config.appName);
-                console.log(`- Android App Name (label) updated to ${config.appName}`);
+        execute: function (options: { platform?: 'ios' | 'android' | 'all' } = {}) {
+            const platform = options.platform ?? 'all';
+            const includeIos = platform !== 'android';
+            const includeAndroid = platform !== 'ios';
+
+            if (includeAndroid) {
+                // update app name in AndroidManifest.xml
+                const androidManifest = useAndroidManifest();
+                if (androidManifest) {
+                    androidManifest.ensureApplicationLabel(config.appName);
+                    console.log(`- Android App Name (label) updated to ${config.appName}`);
+                }
+
+                // Update applicationId in build.gradle
+                if (hasAndroidGradle('android/app')) {
+                    useBuildGradle('android/app').update('applicationId', config.applicationId, 'string');
+                }
             }
 
-            // update app name in Info.plist
-            if (fs.existsSync(IOS_INFO_PLIST)) {
-                const plist = usePlist(IOS_INFO_PLIST);
-                plist.set('CFBundleDisplayName', 'string', config.appName);
-                plist.set('CFBundleName', 'string', config.appName);
-                console.log(`- iOS App Name (CFBundleDisplayName and CFBundleName) updated to ${config.appName}`);
-            } else {
-                console.log(`- ${IOS_INFO_PLIST} not found, skipping iOS app name update.`);
-            }
+            if (includeIos) {
+                // update app name in Info.plist
+                if (fs.existsSync(IOS_INFO_PLIST)) {
+                    const plist = usePlist(IOS_INFO_PLIST);
+                    plist.set('CFBundleDisplayName', 'string', config.appName);
+                    plist.set('CFBundleName', 'string', config.appName);
+                    console.log(`- iOS App Name (CFBundleDisplayName and CFBundleName) updated to ${config.appName}`);
+                } else {
+                    console.log(`- ${IOS_INFO_PLIST} not found, skipping iOS app name update.`);
+                }
 
-            // Update applicationId in build.gradle
-            if (hasAndroidGradle('android/app')) {
-                useBuildGradle('android/app').update('applicationId', config.applicationId, 'string');
-            }
+                // Update bundle identifier and signing settings in iOS project.pbxproj
+                if (fs.existsSync(IOS_PBXPROJ)) {
+                    const pbxproj = fs.readFileSync(IOS_PBXPROJ, 'utf-8');
+                    let updated = pbxproj.replace(/PRODUCT_BUNDLE_IDENTIFIER = ([^;]+);/g, (_match, current: string) => {
+                        const bundleId = current.trim();
+                        // Keep the test target's bundle identifier distinct from the app's.
+                        if (bundleId.endsWith('.RunnerTests')) {
+                            return `PRODUCT_BUNDLE_IDENTIFIER = ${config.bundleIdentifier}.RunnerTests;`;
+                        }
+                        return `PRODUCT_BUNDLE_IDENTIFIER = ${config.bundleIdentifier};`;
+                    });
 
-            // Update bundle identifier and signing settings in iOS project.pbxproj
-            if (fs.existsSync(IOS_PBXPROJ)) {
-                const pbxproj = fs.readFileSync(IOS_PBXPROJ, 'utf-8');
-                let updated = pbxproj.replace(/PRODUCT_BUNDLE_IDENTIFIER = ([^;]+);/g, (_match, current: string) => {
-                    const bundleId = current.trim();
-                    // Keep the test target's bundle identifier distinct from the app's.
-                    if (bundleId.endsWith('.RunnerTests')) {
-                        return `PRODUCT_BUNDLE_IDENTIFIER = ${config.bundleIdentifier}.RunnerTests;`;
+                    if (config.iosDevelopmentTeam) {
+                        updated = updated.replace(/(DEVELOPMENT_TEAM) = [^;]+;/g, `$1 = ${config.iosDevelopmentTeam};`);
                     }
-                    return `PRODUCT_BUNDLE_IDENTIFIER = ${config.bundleIdentifier};`;
-                });
 
-                if (config.iosDevelopmentTeam) {
-                    updated = updated.replace(/(DEVELOPMENT_TEAM) = [^;]+;/g, `$1 = ${config.iosDevelopmentTeam};`);
-                }
+                    if (config.iosMinVersion) {
+                        updated = updated.replace(/(IPHONEOS_DEPLOYMENT_TARGET) = [^;]+;/g, `$1 = ${config.iosMinVersion};`);
+                    }
 
-                if (config.iosMinVersion) {
-                    updated = updated.replace(/(IPHONEOS_DEPLOYMENT_TARGET) = [^;]+;/g, `$1 = ${config.iosMinVersion};`);
-                }
+                    fs.writeFileSync(IOS_PBXPROJ, updated);
 
-                fs.writeFileSync(IOS_PBXPROJ, updated);
-
-                console.log(`- iOS Bundle Identifier updated to ${config.bundleIdentifier}`);
-                if (config.iosDevelopmentTeam) {
-                    console.log(`- iOS Development Team (DEVELOPMENT_TEAM) updated to ${config.iosDevelopmentTeam}`);
+                    console.log(`- iOS Bundle Identifier updated to ${config.bundleIdentifier}`);
+                    if (config.iosDevelopmentTeam) {
+                        console.log(`- iOS Development Team (DEVELOPMENT_TEAM) updated to ${config.iosDevelopmentTeam}`);
+                    }
+                    if (config.iosMinVersion) {
+                        console.log(`- iOS Minimum Deployment Target (IPHONEOS_DEPLOYMENT_TARGET) updated to ${config.iosMinVersion}`);
+                    }
+                } else {
+                    console.log(`- ${IOS_PBXPROJ} not found, skipping iOS project updates.`);
                 }
-                if (config.iosMinVersion) {
-                    console.log(`- iOS Minimum Deployment Target (IPHONEOS_DEPLOYMENT_TARGET) updated to ${config.iosMinVersion}`);
-                }
-            } else {
-                console.log(`- ${IOS_PBXPROJ} not found, skipping iOS project updates.`);
             }
 
-            if (config.androidMinSdkVersion && hasAndroidGradle('android/app')) {
+            if (includeAndroid && config.androidMinSdkVersion && hasAndroidGradle('android/app')) {
                 const buildGradle = useBuildGradle('android/app');
                 const updated = buildGradle.update('minSdk', config.androidMinSdkVersion, 'int', true)
                     || buildGradle.update('minSdkVersion', config.androidMinSdkVersion, 'int');
@@ -97,11 +105,11 @@ export function useInfoHandler(config: AppInfoConfig) {
                 }
             }
 
-            if (config.ndkVersion && hasAndroidGradle('android/app')) {
+            if (includeAndroid && config.ndkVersion && hasAndroidGradle('android/app')) {
                 useBuildGradle('android/app').update('ndkVersion', config.ndkVersion, 'string');
             }
 
-            if (config.gradleVersion) {
+            if (includeAndroid && config.gradleVersion) {
                 const wrapperPath = './android/gradle/wrapper/gradle-wrapper.properties';
                 if (!fs.existsSync(wrapperPath)) {
                     console.log(`- ${wrapperPath} not found, skipping Gradle version update.`);

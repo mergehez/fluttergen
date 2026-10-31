@@ -152,12 +152,13 @@ function applyIosSigning(signing: IosSigningConfig) {
 
 export function useSigning(config: FluttergenConfig) {
     return {
-        execute: () => {
+        execute: (options: { platform?: 'ios' | 'android' | 'all' } = {}) => {
             if (!config.signing) return;
-            if (config.signing.android) {
+            const platform = options.platform ?? 'all';
+            if (config.signing.android && platform !== 'ios') {
                 applyAndroidSigning(config.signing.android);
             }
-            if (config.signing.ios) {
+            if (config.signing.ios && platform !== 'android') {
                 applyIosSigning(config.signing.ios);
             }
         },

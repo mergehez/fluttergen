@@ -1,8 +1,9 @@
 import {afterEach, describe, expect, test} from 'bun:test';
 import fs from 'fs';
 import path from 'path';
+import sharp from 'sharp';
 import {spawnSync} from 'child_process';
-import {cleanupTempDirs, makeTempDir, writeFixture} from './helpers.ts';
+import {cleanupTempDirs, makeTempDir, plistFixture, writeFixture} from './helpers.ts';
 
 afterEach(cleanupTempDirs);
 
@@ -125,5 +126,75 @@ describe('CLI', () => {
 
         expect(result.status).toBe(1);
         expect(result.stderr).toContain("Unknown task 'does.not.exist'");
+    });
+
+    test('prints the JSON schema', () => {
+        const result = runCli(['schema'], makeTempDir());
+
+        expect(result.status).toBe(0);
+        const schema = JSON.parse(result.stdout);
+        expect(schema.properties).toHaveProperty('icon');
+        expect(schema.properties).toHaveProperty('release');
+    });
+
+    test('supports release dry runs and version bumps', () => {
+        const dir = makeTempDir();
+        writeFixture(path.join(dir, 'pubspec.yaml'), [
+            'name: app',
+            'version: 1.0.0+1',
+            'fluttergen:',
+            '  icon:',
+            '    path: assets/icon.png',
+            "    bgColor: '#fff'",
+            '  splash:',
+            '    path: assets/splash.png',
+            "    bgColor: '#000'",
+        ].join('\n'));
+
+        const dryRun = runCli(['release', '--patch', '--dry-run'], dir);
+        expect(dryRun.status).toBe(0);
+        expect(dryRun.stdout).toContain('Dry run');
+        expect(fs.readFileSync(path.join(dir, 'pubspec.yaml'), 'utf-8')).toContain('version: 1.0.0+1');
+
+        const release = runCli(['release', '--patch'], dir);
+        expect(release.status).toBe(0);
+        expect(fs.readFileSync(path.join(dir, 'pubspec.yaml'), 'utf-8')).toContain('version: 1.0.1+2');
+    });
+
+    test('supports only/platform/dry-run for generation', async () => {
+        const dir = makeTempDir();
+        writeFixture(path.join(dir, 'pubspec.yaml'), [
+            'fluttergen:',
+            '  icon:',
+            '    path: assets/icon.png',
+            "    bgColor: '#018290'",
+            '  splash:',
+            '    path: assets/splash.png',
+            "    bgColor: '#00636E'",
+        ].join('\n'));
+        writeFixture(path.join(dir, 'ios/Runner/Info.plist'), plistFixture);
+        writeFixture(path.join(dir, 'android/app/src/main/AndroidManifest.xml'), [
+            '<manifest xmlns:android="http://schemas.android.com/apk/res/android">',
+            '<application android:name="${applicationName}"></application>',
+            '</manifest>',
+        ].join('\n'));
+
+        fs.mkdirSync(path.join(dir, 'assets'), {recursive: true});
+        await sharp({create: {width: 64, height: 64, channels: 4, background: {r: 1, g: 130, b: 144, alpha: 1}}})
+            .png().toFile(path.join(dir, 'assets/icon.png'));
+        await sharp({create: {width: 64, height: 64, channels: 4, background: {r: 0, g: 99, b: 110, alpha: 1}}})
+            .png().toFile(path.join(dir, 'assets/splash.png'));
+
+        const appIconSet = path.join(dir, 'ios/Runner/Assets.xcassets/AppIcon.appiconset');
+
+        const dryRun = runCli(['--only', 'icons', '--platform', 'ios', '--dry-run'], dir);
+        expect(dryRun.status).toBe(0);
+        expect(dryRun.stdout).toContain('Dry run');
+        expect(fs.existsSync(appIconSet)).toBe(false);
+
+        const real = runCli(['--only', 'icons', '--platform', 'ios'], dir);
+        expect(real.status).toBe(0);
+        expect(fs.existsSync(path.join(appIconSet, 'Contents.json'))).toBe(true);
+        expect(fs.existsSync(path.join(dir, 'android/app/src/main/res'))).toBe(false);
     });
 });

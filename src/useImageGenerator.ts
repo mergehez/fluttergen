@@ -566,22 +566,30 @@ export function useImageGenerator(cfg: FluttergenConfig) {
     }
 
     return {
-        execute: async () => {
-            const hasIosProject = fs.existsSync('./ios/Runner/Info.plist');
-            const hasAndroidProject = fs.existsSync('./android/app/src/main');
+        execute: async (options: {
+            icons?: boolean;
+            splash?: boolean;
+            platform?: 'ios' | 'android' | 'all';
+        } = {}) => {
+            const includeIcons = options.icons ?? true;
+            const includeSplash = options.splash ?? true;
+            const platform = options.platform ?? 'all';
+
+            const hasIosProject = platform !== 'android' && fs.existsSync('./ios/Runner/Info.plist');
+            const hasAndroidProject = platform !== 'ios' && fs.existsSync('./android/app/src/main');
 
             if (hasIosProject) {
-                await generateIosIcons(cfg.icon);
-                await generateIosSplashScreen(cfg.splash);
+                if (includeIcons) await generateIosIcons(cfg.icon);
+                if (includeSplash) await generateIosSplashScreen(cfg.splash);
             } else {
-                console.log('- iOS project not found, skipping iOS icon/splash generation.');
+                console.log('- iOS project not found or skipped, skipping iOS assets.');
             }
 
             if (hasAndroidProject) {
-                await generateAndroidIcons(cfg.icon, cfg.notificationIcon);
-                await generateAndroidSplashScreen(cfg.splash, cfg.icon.name.android);
+                if (includeIcons) await generateAndroidIcons(cfg.icon, cfg.notificationIcon);
+                if (includeSplash) await generateAndroidSplashScreen(cfg.splash, cfg.icon.name.android);
             } else {
-                console.log('- Android project not found, skipping Android icon/splash generation.');
+                console.log('- Android project not found or skipped, skipping Android assets.');
             }
         },
     }

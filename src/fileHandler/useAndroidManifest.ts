@@ -105,6 +105,31 @@ export function useAndroidManifest() {
         ensureAttribute('application', 'android:label', label);
     }
 
+    /**
+     * Adds a `<uses-permission>` entry before `<application>` if it is missing.
+     */
+    function ensurePermission(permission: string) {
+        const name = permission.includes('.') ? permission : `android.permission.${permission}`;
+        const allLines = readLines();
+
+        if (allLines.some(line => line.includes(`android:name="${name}"`))) {
+            return false;
+        }
+
+        const appIndex = allLines.findIndex(line => line.trim().startsWith('<application'));
+        if (appIndex === -1) {
+            console.warn('Could not find <application> in AndroidManifest.xml, skipping permission.');
+            return false;
+        }
+
+        const applicationLine = allLines[appIndex];
+        const trimIndex = applicationLine.indexOf(applicationLine.trim());
+        const indent = trimIndex >= 0 ? applicationLine.substring(0, trimIndex) : '';
+        allLines.splice(appIndex, 0, `${indent}<uses-permission android:name="${escapeXml(name)}"/>`);
+        writeLines(allLines);
+        return true;
+    }
+
     const updateOrCreateMetaData = (name: string, resource: string) => {
         const allLines = readLines();
         const index = allLines.findIndex(line => line.includes(`android:name="${name}"`));
@@ -141,6 +166,7 @@ export function useAndroidManifest() {
     return {
         ensureAttribute,
         ensureApplicationLabel,
+        ensurePermission,
         updateOrCreateMetaData,
     }
 }

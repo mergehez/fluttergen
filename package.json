@@ -11,7 +11,8 @@
     },
     "homepage": "https://github.com/mergehez/fluttergen",
     "files": [
-        "dist"
+        "dist",
+        "fluttergen.schema.json"
     ],
     "bin": {
         "fluttergen": "dist/index.cjs"
@@ -22,6 +23,7 @@
         "test": "bun testx",
         "test:unit": "bun test tests",
         "test:package": "bun run build && bun test tests/package.test.ts",
+        "schema": "bun src/index.ts schema --output fluttergen.schema.json",
         "prepublishOnly": "bun run build"
     },
     "devDependencies": {
@@ -37,6 +39,7 @@
     "dependencies": {
         "color-convert": "^3.1.3",
         "color-name": "^2.1.0",
+        "diff": "^9.0.0",
         "dotenv": "^17.2.3",
         "plist": "^3.1.0",
         "properties-file": "^3.6.3",
