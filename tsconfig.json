@@ -16,5 +16,8 @@
     "types": [
       "node"
     ]
-  }
+  },
+  "include": [
+    "src"
+  ]
 }
