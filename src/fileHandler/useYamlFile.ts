@@ -44,9 +44,6 @@ export function useYamlFile(path: string) {
             root.setIn(keyPath.split('.'), list);
             fs.writeFileSync(path, encode(root), 'utf8');
         } else {
-            if (typeof list === 'object') {
-                console.log(list)
-            }
             throw new KnownError(`The type of key '${keyPath}' should be a list/array, but got ${typeof list}`);
         }
     }
@@ -65,7 +62,7 @@ export function useYamlFile(path: string) {
         let current: any = root;
         for (let i = 0; i < keys.length; i++) {
             const k = keys[i];
-            if (!(k in current)) {
+            if (current === null || typeof current !== 'object' || !(k in current)) {
                 return undefined;
             }
             current = current[k];

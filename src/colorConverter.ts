@@ -39,6 +39,9 @@ export const colorConverter = {
         }
 
         if (h.length === 6 || h.length === 8) {
+            if (!/^[0-9A-F]+$/.test(h)) {
+                throw new KnownError(`Invalid Hex color string: ${str}`);
+            }
             // Standard format: #RRGGBB or #RRGGBBAA
             const r = parseInt(h.substring(0, 2), 16);
             const g = parseInt(h.substring(2, 4), 16);
