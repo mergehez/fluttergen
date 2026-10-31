@@ -27,6 +27,8 @@ function compareVersions(a: string, b: string): number {
 }
 
 async function warnIfNewerVersionAvailable() {
+    if (process.env.FLUTTERGEN_NO_UPDATE_CHECK) return;
+
     const curr = currentVersion();
     try {
         const res = await fetch('https://registry.npmjs.org/fluttergen/latest', {

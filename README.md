@@ -27,6 +27,8 @@ bunx fluttergen
 npx fluttergen
 ```
 
+Set `FLUTTERGEN_NO_UPDATE_CHECK=1` to skip the npm update check (handy for CI or offline environments).
+
 The tool will automatically:
 
 - Rename your app (iOS and Android)
