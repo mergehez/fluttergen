@@ -9,10 +9,10 @@ const pkg = JSON.parse(fs.readFileSync(new URL('./package.json', import.meta.url
 
 esbuild.build({
     bundle: true,
-    minify: false, // never set to true, because it breaks the method 'printAvailableAutomationActions' in useAutomation.ts
+    minify: false, // keep readable stack traces; minification can break eval-based script helpers
     platform: 'node',
     format: 'cjs',
-    target: 'node16',
+    target: 'node18',
     outfile: "dist/index.cjs",
     entryPoints: ["src/index.ts"],
     external: [
@@ -24,5 +24,8 @@ esbuild.build({
     const bytes = fs.statSync('./dist/index.cjs').size;
     console.log(`Build completed. Output file size: ${Math.round(bytes / 1024)} KB`);
 })
-    .catch(() => process.exit(1));
+    .catch((error) => {
+        console.error('Build failed:', error);
+        process.exit(1);
+    })
 

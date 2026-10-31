@@ -26,7 +26,6 @@ fluttergen:
     iosDevelopmentTeam: ABCDE12345
     iosMinVersion: '13.0'
     androidMinSdkVersion: 21
-    kotlinVersion: '1.9.10'
     gradleVersion: '8.14'
   icon:
     name:

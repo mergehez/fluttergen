@@ -2,9 +2,9 @@ import {execSync} from "node:child_process";
 import packageJson from './package.json' with {type: "json"};
 import fs from "fs";
 
-const packageJsonStr = JSON.stringify(packageJson, null, 2);
+const packageJsonStr = JSON.stringify(packageJson, null, 2) + '\n';
 
-execSync('npm version patch', {stdio: 'inherit'});
+execSync('npm version patch --no-git-tag-version', {stdio: 'inherit'});
 try {
     execSync('bun run build', {stdio: 'inherit'});
     execSync('npm publish --access=public', {stdio: 'inherit'});

@@ -8,7 +8,19 @@ execSync("bun buildx", {stdio: 'inherit'});
 fs.mkdirSync('aa/assets', {recursive: true});
 fs.copyFileSync('./dist/index.cjs', './aa/index.cjs');
 fs.copyFileSync('./assets/pubspec.yaml', './aa/pubspec.yaml');
-fs.copyFileSync('./assets/.env', './aa/.env');
+if (fs.existsSync('./assets/.env')) {
+    fs.copyFileSync('./assets/.env', './aa/.env');
+} else {
+    // The repository does not ship a .env; provide deterministic dummy values for the test project.
+    fs.writeFileSync('./aa/.env', [
+        'DEV_ACCOUNT=dev@example.com',
+        'FIREBASE_ID=example-project',
+        'KS_STORE_PASSWORD=store-password',
+        'KS_KEY_PASSWORD=key-password',
+        'KS_ALIAS=key-alias',
+        'KS_FILE_PATH=../keystore/test.jks',
+    ].join('\n'));
+}
 fs.copyFileSync('./assets/manifest.xml', './aa/android/app/src/main/AndroidManifest.xml');
 fs.copyFileSync('./assets/icon_transparent.png', './aa/assets/icon_transparent.png');
 fs.copyFileSync('./assets/icon_with_title.png', './aa/assets/icon_with_title.png');

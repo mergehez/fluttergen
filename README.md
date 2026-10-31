@@ -7,7 +7,7 @@ Flutter helper CLI tools for automating app configuration tasks including renami
 
 The tool replaces well-known flutter tools like [rename](https://pub.dev/packages/rename), [flutter_launcher_icons](https://pub.dev/packages/flutter_launcher_icons) and [flutter_native_splash](https://pub.dev/packages/flutter_native_splash).
 
-You'll need to have [Node.js](https://nodejs.org/) or [Bun](https://bun.sh/) installed to use this tool.
+You'll need [Node.js](https://nodejs.org/) (18+) or [Bun](https://bun.sh/) installed to use this tool.
 
 ## Installation
 
@@ -47,7 +47,6 @@ fluttergen:
     iosDevelopmentTeam: ABCDE12345
     iosMinVersion: '13.0'
     androidMinSdkVersion: 21
-    kotlinVersion: '1.9.10'
     gradleVersion: '8.14'
   icon:
     name:
@@ -137,9 +136,13 @@ Define reusable variables that can be referenced in scripts. Variables can be si
 fluttergen:
   variables:
     myVar: "value"
-    envVar: env.MY_ENV_VARIABLE  # Loads from .env file
-    computed: 10 + 5  # Supports basic math expressions
+    envVar: env.MY_ENV_VARIABLE  # Loads from .env (or the process environment)
+    computed: 10 + 5  # Supports basic arithmetic (+ - * / % and parentheses)
 ```
+
+Variable expressions are evaluated by a small built-in arithmetic parser, not `eval`.
+Only values that clearly look like expressions are evaluated, so values such as
+`2024-01-01` or `my-app` are kept as plain strings.
 
 ### Prescripts & Postscripts
 
