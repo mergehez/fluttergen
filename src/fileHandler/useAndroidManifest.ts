@@ -1,53 +1,119 @@
 import path from "path";
 import fs from "fs";
 
+function escapeXml(value: string): string {
+    return value
+        .replaceAll('&', '&amp;')
+        .replaceAll('"', '&quot;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;');
+}
+
+function escapeRegExp(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 export function useAndroidManifest() {
     const manifestPath = path.join('./android/app/src/main/AndroidManifest.xml');
 
-    // // TODO: Remove this line in production; it's only for testing purposes.
-    // fs.copyFileSync('./aa/android/app/src/main/AndroidManifest.xml', manifestPath, fs.constants.COPYFILE_FICLONE);
-
     if (!fs.existsSync(manifestPath)) {
-        console.error(`AndroidManifest.xml not found at ${manifestPath}. Skipping manifest update.`);
+        console.warn(`AndroidManifest.xml not found at ${manifestPath}. Skipping manifest update.`);
         return undefined;
     }
 
-    function ensureAttribute(tag: string, attribute: string, value: string) {
-        const allLines = fs.readFileSync(manifestPath, 'utf-8').split('\n');
+    function readLines() {
+        return fs.readFileSync(manifestPath, 'utf-8').split('\n');
+    }
 
-        const tagLineIndex = allLines.findIndex(line => line.trim().startsWith(`<${tag}`));
-        if (tagLineIndex === -1) return;
-
-        const attrLines = [allLines[tagLineIndex]];
-        let currentLineIndex = tagLineIndex;
-        while (!allLines[currentLineIndex].trim().endsWith('>')) {
-            currentLineIndex++;
-            attrLines.push(allLines[currentLineIndex]);
-        }
-        const existingLine = attrLines.findIndex(line => line.includes(attribute + '='));
-        if (existingLine !== -1) {
-            allLines[tagLineIndex + existingLine] = attrLines[existingLine].replace(new RegExp(`${attribute}="[^"]*"`), `${attribute}="${value}"`);
-        } else {
-            const indent = attrLines.length > 1 ? '\n' + attrLines[1].substring(0, attrLines[1].indexOf(attrLines[1].trim())) : ' ';
-            allLines[tagLineIndex] = allLines[tagLineIndex].replace(`<${tag}`, `<${tag}${indent}${attribute}="${value}"`);
-        }
-
+    function writeLines(allLines: string[]) {
         fs.writeFileSync(manifestPath, allLines.join('\n'));
     }
 
-    ensureAttribute('manifest', 'xmlns:tools', 'http://schemas.android.com/tools');
-    ensureAttribute('application', 'tools:replace', 'android:label');
+    function findTagRange(allLines: string[], tag: string) {
+        const start = allLines.findIndex(line => line.trim().startsWith(`<${tag}`));
+        if (start === -1) return undefined;
+
+        let end = start;
+        while (end < allLines.length && !allLines[end].trim().endsWith('>')) {
+            end++;
+        }
+        if (end >= allLines.length) return undefined;
+
+        return {start, end};
+    }
+
+    function ensureAttribute(tag: string, attribute: string, value: string) {
+        const allLines = readLines();
+        const range = findTagRange(allLines, tag);
+        if (!range) {
+            console.warn(`Could not find <${tag}> in AndroidManifest.xml, skipping '${attribute}'.`);
+            return;
+        }
+
+        const escapedValue = escapeXml(value);
+        const attributeRegex = new RegExp(`(${escapeRegExp(attribute)}=")[^"]*"`);
+
+        for (let i = range.start; i <= range.end; i++) {
+            if (allLines[i].includes(`${attribute}=`)) {
+                allLines[i] = allLines[i].replace(attributeRegex, `$1${escapedValue}"`);
+                writeLines(allLines);
+                return;
+            }
+        }
+
+        let indent = ' ';
+        if (range.end > range.start) {
+            const nextLine = allLines[range.start + 1];
+            const trimIndex = nextLine.indexOf(nextLine.trim());
+            indent = '\n' + (trimIndex > 0 ? nextLine.substring(0, trimIndex) : '    ');
+        }
+        allLines[range.start] = allLines[range.start].replace(`<${tag}`, `<${tag}${indent}${attribute}="${escapedValue}"`);
+
+        writeLines(allLines);
+    }
+
+    function ensureToolsReplace(attributes: string[]) {
+        const allLines = readLines();
+        const range = findTagRange(allLines, 'application');
+        if (!range) return;
+
+        let existing: string | undefined;
+        for (let i = range.start; i <= range.end; i++) {
+            const match = /tools:replace="([^"]*)"/.exec(allLines[i]);
+            if (match) {
+                existing = match[1];
+                break;
+            }
+        }
+
+        const merged = existing
+            ? existing.split(',').map(value => value.trim()).filter(Boolean)
+            : [];
+        for (const attribute of attributes) {
+            if (!merged.includes(attribute)) merged.push(attribute);
+        }
+
+        ensureAttribute('application', 'tools:replace', merged.join(','));
+    }
+
+    /**
+     * Sets application@android:label and makes sure tools:replace covers it.
+     */
+    function ensureApplicationLabel(label: string) {
+        ensureAttribute('manifest', 'xmlns:tools', 'http://schemas.android.com/tools');
+        ensureToolsReplace(['android:label']);
+        ensureAttribute('application', 'android:label', label);
+    }
 
     const updateOrCreateMetaData = (name: string, resource: string) => {
-        const allLines = fs.readFileSync(manifestPath, 'utf-8').split('\n');
+        const allLines = readLines();
         const index = allLines.findIndex(line => line.includes(`android:name="${name}"`));
-        console.log(`Meta-data ${name} found at line index: ${index}`);
         if (index !== -1) {
             // Update the existing metadata resource
             const regex = /android:resource="[^"]*"/g;
             for (let i = index; i < allLines.length; i++) {
                 if (allLines[i].match(regex)) {
-                    allLines[i] = allLines[i].replace(regex, `android:resource="${resource}"`);
+                    allLines[i] = allLines[i].replace(regex, `android:resource="${escapeXml(resource)}"`);
                     break;
                 }
                 if (allLines[i].endsWith('>')) {
@@ -56,21 +122,25 @@ export function useAndroidManifest() {
             }
         } else {
             const appEndIndex = allLines.findIndex(line => line.includes('</application>'));
+            if (appEndIndex === -1) {
+                console.warn('Could not find </application> in AndroidManifest.xml, skipping metadata update.');
+                return;
+            }
             const indent = allLines[appEndIndex].substring(0, allLines[appEndIndex].indexOf('</application>'));
+            const childIndent = `${indent}    `;
             allLines.splice(appEndIndex, 0,
-                `\n${indent}\t<meta-data\n${indent}\t\tandroid:name="${name}"\n${indent}\t\tandroid:resource="${resource}" />`
+                `${childIndent}<meta-data`,
+                `${childIndent}    android:name="${escapeXml(name)}"`,
+                `${childIndent}    android:resource="${escapeXml(resource)}" />`
             );
         }
 
-        fs.writeFileSync(manifestPath, allLines.join('\n'));
+        writeLines(allLines);
     };
 
     return {
         ensureAttribute,
+        ensureApplicationLabel,
         updateOrCreateMetaData,
-        // save: (message?: string) => {
-        //     fs.writeFileSync(manifestPath, allLines.join('\n'));
-        //     console.log(message || "- AndroidManifest.xml updated.");
-        // }
     }
 }

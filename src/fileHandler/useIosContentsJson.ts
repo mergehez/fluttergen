@@ -19,10 +19,12 @@ export function useIosContentsJson(outputPath: string) {
             });
         },
         deleteOldFiles: function () {
-            const files = fs.readdirSync(path.dirname(outputPath));
+            const folder = path.dirname(outputPath);
+            const files = fs.readdirSync(folder);
             for (const file of files) {
-                if (file !== 'Contents.json') {
-                    fs.unlinkSync(path.join(path.dirname(outputPath), file));
+                // Only remove generated image assets; leave unrelated files (and Contents.json) untouched.
+                if (file !== 'Contents.json' && /\.(png|jpe?g|gif|webp|pdf)$/i.test(file)) {
+                    fs.unlinkSync(path.join(folder, file));
                 }
             }
         },

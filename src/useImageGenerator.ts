@@ -7,11 +7,9 @@ import {FluttergenConfig} from "./yamlParser.ts";
 import {colorConverter, transparentRgb} from "./colorConverter.ts";
 import {usePlist} from "fileHandler/usePlist.ts";
 import {useIosContentsJson} from "fileHandler/useIosContentsJson.ts";
-import {useXmlParser} from "fileHandler/useXmlParser.ts";
 import {useAndroidManifest} from "fileHandler/useAndroidManifest.ts";
+import {setColorResource, setStyleItem} from "fileHandler/useAndroidXml.ts";
 import {KnownError} from "./knownError.ts";
-
-const ensureArr = (item: any) => Array.isArray(item) ? item : (item ? [item] : []);
 
 function ensureNoExtension(filePath: string): string {
     const parts = filePath.split('.');
@@ -30,6 +28,15 @@ function getEnsuredPath(...paths: string[]) {
 function writeFileSync(filePath: string, content: string) {
     getEnsuredPath(filePath);
     fs.writeFileSync(filePath, content);
+}
+
+function replaceInFileSync(filePath: string, regex: RegExp, replacer: (substring: string, ...args: any[]) => string) {
+    if (!fs.existsSync(filePath)) return;
+    const content = fs.readFileSync(filePath, 'utf-8');
+    const updated = content.replace(regex, replacer);
+    if (updated !== content) {
+        fs.writeFileSync(filePath, updated);
+    }
 }
 
 const androidResFolder = "./android/app/src/main/res";
@@ -126,6 +133,18 @@ export function useImageGenerator(cfg: FluttergenConfig) {
 
         const plist = usePlist('./ios/Runner/Info.plist');
         plist.set('CFBundleIconName', 'string', iconFileName);
+
+        // Xcode selects the app icon through the asset catalog build setting, not Info.plist.
+        replaceInFileSync(
+            './ios/Runner.xcodeproj/project.pbxproj',
+            /(ASSETCATALOG_COMPILER_APPICON_NAME = )[^;]+;/g,
+            (_match, prefix: string) => `${prefix}${iconFileName};`
+        );
+
+        const iosBackground = colorConverter.anyToRgba(iconCfg.bgColor.light);
+        if (!iosBackground || iosBackground.alpha === 0) {
+            console.warn('- Warning: iOS app icons must be opaque. A transparent icon background may cause App Store rejection.');
+        }
     }
 
     async function generateIosSplashScreen(splashCfg: FluttergenConfig['splash']) {
@@ -269,6 +288,10 @@ export function useImageGenerator(cfg: FluttergenConfig) {
 
         for (const [folder, scale] of Object.entries({...mipmapScales, './assets/icon-512x512.png': 512})) {
             const asIs = scale == 512;
+            if (asIs && path.resolve(folder) === path.resolve(iconCfg.path.light)) {
+                // Never read and write the same file.
+                continue;
+            }
             await resizeImage({
                 borderRadius: iconCfg.borderRadius,
                 inputPath: iconCfg.path.light,
@@ -332,11 +355,13 @@ export function useImageGenerator(cfg: FluttergenConfig) {
 
         const notificationColorName = 'notification_accent_color';
         const notificationIconName = notifCfg !== false
-            ? ensureNoExtension(iconCfg.name.android || 'ic').replace('_launcher', '') + '_notification'
+            ? (notifCfg.name
+                ? ensureNoExtension(notifCfg.name)
+                : ensureNoExtension(iconCfg.name.android || 'ic').replace(/_launcher$/, '') + '_notification')
             : undefined;
 
         if (notifCfg !== false && notifCfg.path) {
-            await ensureColorResource('values', notificationColorName, '#ffffff');
+            await ensureColorResource('values', notificationColorName, notifCfg.tintColor || '#ffffff');
 
             // Generate Image for each density
             for (const [folder, scale] of Object.entries(mipmapScales)) {
@@ -386,7 +411,7 @@ export function useImageGenerator(cfg: FluttergenConfig) {
             // @ts-ignore
             light: useStylesXml('values-v31', (await import("./stub/styles-v31.txt")).default),
             // @ts-ignore
-            dark: useStylesXml('values-night-v31', (await import("./stub/styles-v31.txt")).default)
+            dark: useStylesXml('values-night-v31', (await import("./stub/styles-night-v31.txt")).default)
         }
 
         console.log("- Android styles.xml files updated for splash screens.");
@@ -449,22 +474,7 @@ export function useImageGenerator(cfg: FluttergenConfig) {
 
         return {
             ensureAttribute: async (name: string, value: string, required: boolean = true) => {
-                let content = fs.readFileSync(stylesXmlPath, 'utf-8');
-                const [parsed, xmlBuilder] = await useXmlParser(content);
-                const styles = ensureArr(parsed.resources.style);
-                for (const style of styles) {
-                    if (style.$.name !== 'LaunchTheme')
-                        continue;
-                    const items = ensureArr(style.item);
-
-                    const index = items.findIndex((item: any) => item.$.name === name);
-                    if (index !== -1) {
-                        items[index]._ = value;
-                    } else if (required) {
-                        items.push({_: value, $: {name: name}});
-                    }
-                }
-                fs.writeFileSync(stylesXmlPath, xmlBuilder(parsed));
+                setStyleItem(stylesXmlPath, 'LaunchTheme', name, value, required);
             }
         }
     }
@@ -484,6 +494,10 @@ export function useImageGenerator(cfg: FluttergenConfig) {
 
     async function resizeImage(opts: ResizeOptions) {
         const {width: fullWidth, height: fullHeight, padding = 0, borderRadius = 0, outputPath} = opts;
+
+        if (path.resolve(opts.inputPath) === path.resolve(outputPath)) {
+            throw new KnownError(`Input and output paths must differ: ${outputPath}`);
+        }
 
         const bgColorRgba = opts.transparent || !opts.bgColor
             ? transparentRgb
@@ -547,37 +561,28 @@ export function useImageGenerator(cfg: FluttergenConfig) {
 
     async function ensureColorResource(folder: 'values' | 'values-night', colorName: string, hexValue: string) {
         const colorsXmlPath = getEnsuredPath(androidResFolder, folder, 'colors.xml');
-
-        if (!fs.existsSync(colorsXmlPath)) {
-            fs.writeFileSync(colorsXmlPath, `<?xml version="1.0" encoding="utf-8"?>\n<resources>\n<color name="${colorName}">${hexValue}</color>\n</resources>`);
-            console.log(`- Android colors.xml created: Added ${colorName} to ${hexValue}`);
-            return;
-        }
-
-        //TODO: find a better library to preserve comments!
-        let [parsed, xmlBuilder] = await useXmlParser(fs.readFileSync(colorsXmlPath, 'utf-8'));
-        if (!parsed.resources || typeof parsed.resources === 'string') {
-            parsed.resources = {color: []};
-        }
-        const colors = ensureArr(parsed.resources.color);
-
-        const index = colors.findIndex((item: any) => item.$.name === colorName);
-        if (index !== -1) {
-            colors[index]._ = hexValue;
-        } else {
-            colors.push({_: hexValue, $: {name: colorName}});
-        }
-        fs.writeFileSync(colorsXmlPath, xmlBuilder(parsed));
-        console.log(`- Android colors.xml updated: Added ${colorName} to ${hexValue}`);
+        const action = setColorResource(colorsXmlPath, colorName, hexValue);
+        console.log(`- Android colors.xml ${action}: ${colorName} = ${hexValue}`);
     }
 
     return {
         execute: async () => {
-            await generateIosIcons(cfg.icon);
+            const hasIosProject = fs.existsSync('./ios/Runner/Info.plist');
+            const hasAndroidProject = fs.existsSync('./android/app/src/main');
 
-            await generateIosSplashScreen(cfg.splash);
-            await generateAndroidIcons(cfg.icon, cfg.notificationIcon);
-            await generateAndroidSplashScreen(cfg.splash, cfg.icon.name.android);
+            if (hasIosProject) {
+                await generateIosIcons(cfg.icon);
+                await generateIosSplashScreen(cfg.splash);
+            } else {
+                console.log('- iOS project not found, skipping iOS icon/splash generation.');
+            }
+
+            if (hasAndroidProject) {
+                await generateAndroidIcons(cfg.icon, cfg.notificationIcon);
+                await generateAndroidSplashScreen(cfg.splash, cfg.icon.name.android);
+            } else {
+                console.log('- Android project not found, skipping Android icon/splash generation.');
+            }
         },
     }
 }
