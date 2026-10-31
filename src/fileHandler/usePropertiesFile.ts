@@ -10,7 +10,11 @@ export function usePropertiesFile(filePath: string) {
             const content = fs.existsSync(filePath) ? fs.readFileSync(filePath, 'utf-8') : '';
             const props = propFile.getProperties(content);
             props[key] = value;
-            fs.writeFileSync(filePath, Object.entries(props).map(([k, v]) => `${k}=${v}`).join('\n'), 'utf-8');
+            const escaped = (input: string) => input
+                .replaceAll('\\', '\\\\')
+                .replaceAll('\n', '\\n')
+                .replaceAll('\r', '\\r');
+            fs.writeFileSync(filePath, Object.entries(props).map(([k, v]) => `${k}=${escaped(String(v))}`).join('\n'), 'utf-8');
         }
     }
 }
