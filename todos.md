@@ -25,12 +25,13 @@
   `not`, `all`, `any`. Workflows support nesting with cycle detection and can be
   invoked by bare name.
 
-## Tasks
+- [x] **Profiles + signing/secrets (#3)**
+  `profiles:` overrides merged with the base config, `--profile`/`FLUTTERGEN_PROFILE`,
+  `.env` + `.env.<profile>` loading, `${VAR}` / `${VAR:-fallback}` expansion, and a
+  `signing:` block that writes Android `key.properties` + `signing.gradle` and iOS
+  team/entitlements in `project.pbxproj`.
 
-- [ ] **Profiles + signing/secrets (#3)**
-  Per-environment config overrides with `--profile`, automatic `.env.<profile>` loading,
-  `env.*` expansion everywhere, and a `signing:` block that writes Android
-  `key.properties`/Gradle signing config and iOS team/entitlements.
+## Tasks
 
 - [ ] **First-class release workflow (#4)**
   `release:` block and `fluttergen release` for version bumping, build-number sync across

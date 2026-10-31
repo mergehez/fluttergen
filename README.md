@@ -264,6 +264,63 @@ A `generate` step runs icon/splash generation and (when `info` is configured) th
 rename step. It is useful in postscripts or custom workflows; when used in a
 prescript it runs in addition to the default generation.
 
+### Profiles and signing
+
+Keep one config and switch environments with `--profile`:
+
+```yaml
+fluttergen:
+  info:
+    appName: '${APP_NAME}'
+    bundleIdentifier: com.example.${APP_SUFFIX}
+    applicationId: com.example.${APP_SUFFIX}
+  profiles:
+    dev:
+      info:
+        appName: My App Dev
+        applicationId: com.example.app.dev
+      icon:
+        path: assets/icon-dev.png
+    prod:
+      info:
+        appName: My App
+        applicationId: com.example.app
+
+  signing:
+    android:
+      storeFile: ${KS_FILE}
+      storePassword: ${KS_STORE_PASSWORD}
+      keyAlias: ${KS_ALIAS}
+      keyPassword: ${KS_KEY_PASSWORD}
+    ios:
+      team: ${APPLE_TEAM}
+      entitlements:
+        aps-environment: development
+        com.apple.developer.associated-domains:
+          - applinks:example.com
+```
+
+```bash
+fluttergen --profile prod
+# or
+FLUTTERGEN_PROFILE=prod fluttergen
+```
+
+Profiles merge over the base config (objects deep-merge, arrays replace). Environment
+files are loaded in order `.env`, `.env.<profile>`, then the process environment;
+`${VAR}` and `${VAR:-fallback}` are expanded in config values. Scripts and workflows
+are left untouched, so their JS template literals keep working; they can read the
+merged environment through the `env` object.
+
+The `signing` block writes:
+
+- `android/key.properties` with the configured credentials.
+- `android/signing.gradle` and applies it from `android/app/build.gradle(.kts)`.
+- iOS `DEVELOPMENT_TEAM`, plus an entitlements plist added to `project.pbxproj`
+  with code signing enabled.
+
+Keep secret values in `.env.*` files or CI variables, never in `pubspec.yaml`.
+
 ### Built-in tasks
 
 Common Flutter/iOS/Android maintenance flows are built in, so you don't need to
