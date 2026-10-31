@@ -1,7 +1,7 @@
 // noinspection JSUnusedLocalSymbols
 
 import {FluttergenConfig} from "./yamlParser.ts";
-import fs, {mkdirSync} from "fs";
+import fs from "fs";
 import {execSync} from "child_process";
 import path from "path";
 import {useYamlFile} from "fileHandler/useYamlFile.ts";
@@ -12,6 +12,20 @@ import * as propFile from 'properties-file'
 import {usePropertiesFile} from "fileHandler/usePropertiesFile.ts";
 import {usePbxproj} from "fileHandler/usePbxproj.ts";
 import {usePlaceholderReplacer} from "fileHandler/usePlaceholderReplacer.ts";
+
+function parseRegexLiteral(value: string): RegExp | undefined {
+    if (!value.startsWith('/')) return undefined;
+    const lastSlash = value.lastIndexOf('/');
+    if (lastSlash <= 0) return undefined;
+    const pattern = value.slice(1, lastSlash);
+    const flags = value.slice(lastSlash + 1);
+    if (!/^[dgimsuvy]*$/.test(flags)) return undefined;
+    try {
+        return new RegExp(pattern, flags);
+    } catch {
+        throw new KnownError(`Invalid regular expression: ${value}`);
+    }
+}
 
 function getFunctions() {
     // noinspection JSUnusedGlobalSymbols
@@ -46,7 +60,7 @@ function getFunctions() {
             usePbxproj(projPath).addEntitlements(entName, groupName, isCodeSign);
         },
         propertiesSet: (filePath: string, key: string, value: string) => {
-            console.log(`- Setting property in ${filePath}: ${key}=${value}`);
+            console.log(`- Setting property '${key}' in ${filePath}`);
             usePropertiesFile(filePath).set(key, value);
         },
         appendToFile: (filePath: string, contentToAppend: string) => {
@@ -54,16 +68,16 @@ function getFunctions() {
             fs.appendFileSync(filePath, contentToAppend);
         },
         replaceInFile: (filePath: string, stringOrRegex: string, newValue: string, type: any) => {
-            console.log(`- Updating file at ${filePath} - Replacing ${stringOrRegex} with ${newValue}`);
-            const isRegex = stringOrRegex.startsWith('/') && stringOrRegex.endsWith('/');
-            if (isRegex) {
-                return replaceInFile(filePath, stringOrRegex, newValue);
+            console.log(`- Updating file at ${filePath}`);
+            const regex = parseRegexLiteral(stringOrRegex);
+            if (regex) {
+                return replaceInFile(filePath, regex, newValue);
             }
 
-            if (filePath.includes('android/build.gradle')) {
-                return useBuildGradle('android').update(stringOrRegex, newValue, type);
-            } else if (filePath.includes('android/app/build.gradle')) {
+            if (filePath.includes('android/app/build.gradle')) {
                 return useBuildGradle('android/app').update(stringOrRegex, newValue, type);
+            } else if (filePath.includes('android/build.gradle')) {
+                return useBuildGradle('android').update(stringOrRegex, newValue, type);
             } else {
                 replaceInFile(filePath, stringOrRegex, newValue);
             }

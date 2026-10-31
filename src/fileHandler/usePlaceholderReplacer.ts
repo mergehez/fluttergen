@@ -21,7 +21,7 @@ export function usePlaceholderReplacer(filePath: string) {
                 if (value === '__not_found__') {
                     console.warn(`Warning: No value found for placeholder {${prefix}.${p1}}`);
                 } else {
-                    console.log(`Replacing placeholder {${prefix}.${p1}} with value:`, value);
+                    console.log(`Replacing placeholder {${prefix}.${p1}}`);
                 }
                 return value !== '__not_found__' ? value : match;
             });
