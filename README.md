@@ -224,6 +224,52 @@ Available objects:
 | `variables` | `Record<string, any>` | Defined variables from `variables` section (alias for `vars`)   |
 | `vars`      | `Record<string, any>` | Defined variables from `variables` section                      |
 
+### Built-in tasks
+
+Common Flutter/iOS/Android maintenance flows are built in, so you don't need to
+define a group or write shell commands. Use them bare, as calls, or with options:
+
+```yaml
+fluttergen:
+  prescripts:
+    - flutter.clean
+    - ios.pods.reset
+    - firebase.configure: { project: env.FIREBASE_ID }
+    - build.apk: { mode: release, flavor: prod }
+```
+
+They can also be run directly from the CLI:
+
+```bash
+fluttergen run --list
+fluttergen run flutter.clean
+fluttergen run ios.pods.reset
+fluttergen run build.apk --mode=release --flavor=prod
+```
+
+| Task | Description |
+|------|-------------|
+| `flutter.clean` | `flutter clean` |
+| `flutter.pubGet` | `flutter pub get` |
+| `flutter.analyze` | `flutter analyze` |
+| `flutter.doctor` | `flutter doctor` |
+| `flutter.test` | `flutter test` |
+| `flutter.run` | `flutter run` |
+| `android.clean` | `./gradlew clean` in `android/` |
+| `ios.pods.install` | `pod install` |
+| `ios.pods.update` | `pod update` |
+| `ios.pods.deintegrate` | `pod deintegrate` |
+| `ios.pods.reset` | deintegrate, clear cache, remove `Pods`/`Podfile.lock`, install |
+| `build.apk` | `flutter build apk` |
+| `build.appBundle` | `flutter build appbundle` |
+| `build.ipa` | `flutter build ipa` |
+| `install.device` | `flutter install` |
+| `firebase.configure` | `flutterfire configure` |
+| `git.tag` | tag the current pubspec version |
+
+Common options: `mode` (`debug`/`profile`/`release`), `flavor`, `target`, `device`,
+`args`, and task-specific flags. iOS tasks and `build.ipa` require macOS.
+
 ## Contributing
 
 Feel free to contribute to the project by creating issues or pull requests.

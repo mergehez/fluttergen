@@ -1,7 +1,8 @@
 import {afterEach, describe, expect, test} from 'bun:test';
 import fs from 'fs';
+import {execSync} from 'child_process';
 import {cleanupTempDirs, inTempDir, pbxprojFixture, plistFixture, writeFixture} from './helpers.ts';
-import {getPredefinedScripts, useScripts} from '../src/useScripts.ts';
+import {getBuiltInTaskNames, getPredefinedScripts, runBuiltInTask, useScripts} from '../src/useScripts.ts';
 import {usePlist} from '../src/fileHandler/usePlist.ts';
 
 afterEach(cleanupTempDirs);
@@ -88,7 +89,7 @@ describe('useScripts', () => {
             expect(() => useScripts(scriptConfig(['missing()']), 'postscripts').execute())
                 .toThrow(/not defined/);
             expect(() => useScripts(scriptConfig([{group: 'x'}]), 'postscripts').execute())
-                .toThrow(/can only be defined as strings/);
+                .toThrow(/Unknown built-in task 'group'/);
         });
     });
 
@@ -158,6 +159,81 @@ describe('useScripts', () => {
 
             expect(fs.readFileSync('ios/Runner.xcodeproj/project.pbxproj', 'utf-8'))
                 .toContain('CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;');
+        });
+    });
+
+    test('exposes namespaced built-in tasks', () => {
+        const names = getBuiltInTaskNames();
+
+        expect(names).toContain('flutter.clean');
+        expect(names).toContain('flutter.pubGet');
+        expect(names).toContain('ios.pods.reset');
+        expect(names).toContain('android.clean');
+        expect(names).toContain('build.apk');
+        expect(names).toContain('firebase.configure');
+        expect(names).toContain('git.tag');
+        expect(names.every(name => name.includes('.'))).toBe(true);
+    });
+
+    test('runs bare built-in names without parentheses', async () => {
+        await inTempDir(() => {
+            writeFixture('pubspec.yaml', 'name: app\nversion: 1.2.3+4\n');
+
+            useScripts(scriptConfig(['versionUp']), 'postscripts').execute();
+
+            expect(fs.readFileSync('pubspec.yaml', 'utf-8')).toContain('version: 1.2.4+5');
+        });
+    });
+
+    test('runs object built-ins with options and array parameters', async () => {
+        await inTempDir(() => {
+            execSync('git init -q');
+            execSync('git config user.email test@example.com');
+            execSync('git config user.name Test');
+            writeFixture('pubspec.yaml', 'name: app\nversion: 1.2.3+4\n');
+            execSync('git add pubspec.yaml');
+            execSync('git commit -qm init');
+
+            useScripts(scriptConfig([
+                {'git.tag': {prefix: 'release-'}},
+                {runCommand: ['echo ok > via-array.txt']},
+            ]), 'postscripts').execute();
+
+            expect(execSync('git tag').toString()).toContain('release-1.2.3+4');
+            expect(fs.readFileSync('via-array.txt', 'utf-8')).toBe('ok\n');
+
+            // Tagging again is a no-op instead of failing.
+            expect(() => useScripts(
+                scriptConfig([{'git.tag': {prefix: 'release-'}}]),
+                'postscripts'
+            ).execute()).not.toThrow();
+        });
+    });
+
+    test('runs built-ins through the exported dispatcher', async () => {
+        await inTempDir(() => {
+            writeFixture('pubspec.yaml', 'name: app\nversion: 1.0.0+1\n');
+
+            runBuiltInTask('versionUp');
+
+            expect(fs.readFileSync('pubspec.yaml', 'utf-8')).toContain('version: 1.0.1+2');
+        });
+    });
+
+    test('rejects unknown tasks and missing Android wrappers', async () => {
+        expect(() => runBuiltInTask('does.not.exist')).toThrow(/Unknown task/);
+
+        await inTempDir(() => {
+            expect(() => runBuiltInTask('android.clean')).toThrow(/gradlew/);
+        });
+    });
+
+    test('rejects unknown built-in objects', async () => {
+        await inTempDir(() => {
+            expect(() => useScripts(
+                scriptConfig([{'does.not.exist': {}}]),
+                'postscripts'
+            ).execute()).toThrow(/Unknown built-in task/);
         });
     });
 });
