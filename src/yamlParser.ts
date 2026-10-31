@@ -41,6 +41,7 @@ const fluttergenConfigSchema = z.object({
         }),
     ]).optional().describe('Android notification icon configuration (set to false to disable)'),
     variables: z.any().optional().describe('Reusable variables that can be referenced in scripts'),
+    workflows: z.record(z.string(), z.array(z.any())).optional().describe('Named reusable workflow steps'),
     prescripts: z.array(z.any()).optional().describe('Scripts to execute before the main fluttergen operations'),
     postscripts: z.array(z.any()).optional().describe('Scripts to execute after the main fluttergen operations'),
 });
@@ -228,9 +229,12 @@ export type FluttergenConfig = {
         name?: string;
         padding: number;
     }
+    workflows: Record<string, WorkflowStep[]>;
     prescripts: (string | Record<string, any>)[] | undefined;
     postscripts: (string | Record<string, any>)[] | undefined;
 }
+
+export type WorkflowStep = string | Record<string, any>;
 
 export function parsePubspecYamlFile(path: string): FluttergenConfig {
     if (!fs.existsSync(path)) {
@@ -335,6 +339,7 @@ export function parsePubspecYaml(yamlContent: string): FluttergenConfig {
             padding: config.notificationIcon?.padding ?? 0.0,
         },
         variables: vars,
+        workflows: config.workflows ?? {},
         prescripts: config.prescripts?.filter(t => t),
         postscripts: config.postscripts?.filter(t => t),
     };

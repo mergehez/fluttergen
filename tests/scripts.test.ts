@@ -7,8 +7,8 @@ import {usePlist} from '../src/fileHandler/usePlist.ts';
 
 afterEach(cleanupTempDirs);
 
-function scriptConfig(postscripts: any[], variables: Record<string, any> = {}) {
-    return {variables, postscripts, prescripts: []} as any;
+function scriptConfig(postscripts: any[], variables: Record<string, any> = {}, workflows: Record<string, any[]> = {}) {
+    return {variables, postscripts, prescripts: [], workflows} as any;
 }
 
 describe('useScripts', () => {
@@ -21,39 +21,39 @@ describe('useScripts', () => {
     });
 
     test('increments the version and build number', async () => {
-        await inTempDir(() => {
+        await inTempDir(async () => {
             writeFixture('pubspec.yaml', 'name: app\nversion: 1.2.3+4\n');
 
-            useScripts(scriptConfig(['versionUp()']), 'postscripts').execute();
+            await useScripts(scriptConfig(['versionUp()']), 'postscripts').execute();
 
             expect(fs.readFileSync('pubspec.yaml', 'utf-8')).toContain('version: 1.2.4+5');
         });
     });
 
     test('adds a build number when missing', async () => {
-        await inTempDir(() => {
+        await inTempDir(async () => {
             writeFixture('pubspec.yaml', 'name: app\nversion: 1.2.3\n');
 
-            useScripts(scriptConfig(['versionUp()']), 'postscripts').execute();
+            await useScripts(scriptConfig(['versionUp()']), 'postscripts').execute();
 
             expect(fs.readFileSync('pubspec.yaml', 'utf-8')).toContain('version: 1.2.4+1');
         });
     });
 
     test('rejects invalid versions', async () => {
-        await inTempDir(() => {
+        await inTempDir(async () => {
             writeFixture('pubspec.yaml', 'name: app\nversion: "1.2"\n');
 
-            expect(() => useScripts(scriptConfig(['versionUp()']), 'postscripts').execute())
-                .toThrow(/Invalid version format/);
+            await expect(useScripts(scriptConfig(['versionUp()']), 'postscripts').execute())
+                .rejects.toThrow(/Invalid version format/);
         });
     });
 
     test('runs yaml helpers and grouped tasks', async () => {
-        await inTempDir(() => {
+        await inTempDir(async () => {
             writeFixture('pubspec.yaml', 'name: app\nversion: 1.0.0+1\n');
 
-            useScripts(scriptConfig([
+            await useScripts(scriptConfig([
                 { 'group:setup': ["yamlSet('pubspec.yaml', 'description', 'grouped')"] },
                 'setup()',
                 "yamlAddToList('pubspec.yaml', 'tags', 'one')",
@@ -69,11 +69,11 @@ describe('useScripts', () => {
     });
 
     test('exposes variables, params and env to tasks', async () => {
-        await inTempDir(() => {
+        await inTempDir(async () => {
             writeFixture('pubspec.yaml', 'name: app\n');
             writeFixture('.env', 'TOKEN=from-env\n');
 
-            useScripts(scriptConfig(
+            await useScripts(scriptConfig(
                 ["yamlSet('pubspec.yaml', 'value', `${vars.one}-${params.two}-${variables.three}-${env.TOKEN}`)"],
                 {one: 'a', two: 'b', three: 'c'}
             ), 'postscripts').execute();
@@ -83,26 +83,26 @@ describe('useScripts', () => {
     });
 
     test('throws for unknown groups and invalid entries', async () => {
-        await inTempDir(() => {
+        await inTempDir(async () => {
             writeFixture('pubspec.yaml', 'name: app\n');
 
-            expect(() => useScripts(scriptConfig(['missing()']), 'postscripts').execute())
-                .toThrow(/not defined/);
-            expect(() => useScripts(scriptConfig([{group: 'x'}]), 'postscripts').execute())
-                .toThrow(/Unknown built-in task 'group'/);
+            await expect(useScripts(scriptConfig(['missing()']), 'postscripts').execute())
+                .rejects.toThrow(/not defined/);
+            await expect(useScripts(scriptConfig([{group: 'x'}]), 'postscripts').execute())
+                .rejects.toThrow(/Unknown workflow step 'group'/);
         });
     });
 
     test('does nothing for empty sections', async () => {
-        await inTempDir(() => {
+        await inTempDir(async () => {
             writeFixture('pubspec.yaml', 'name: app\n');
-            expect(() => useScripts(scriptConfig([]), 'postscripts').execute()).not.toThrow();
+            await useScripts(scriptConfig([]), 'postscripts').execute();
         });
     });
 
     test('runs shell commands', async () => {
-        await inTempDir(() => {
-            useScripts(scriptConfig([
+        await inTempDir(async () => {
+            await useScripts(scriptConfig([
                 "runCommand('echo one > command.txt')",
                 "exec('echo two >> command.txt')",
             ]), 'postscripts').execute();
@@ -112,7 +112,7 @@ describe('useScripts', () => {
     });
 
     test('runs file, plist, YAML and property helpers', async () => {
-        await inTempDir(() => {
+        await inTempDir(async () => {
             writeFixture('source.txt', 'hello');
             writeFixture('dir/a.txt', 'a');
             writeFixture('dir/sub/b.txt', 'b');
@@ -123,7 +123,7 @@ describe('useScripts', () => {
             writeFixture('ios/Runner/Runner.entitlements', plistFixture);
             fs.mkdirSync('destdir');
 
-            useScripts(scriptConfig([
+            await useScripts(scriptConfig([
                 "copyFile('source.txt', 'dest.txt')",
                 "copyFile('source.txt', 'destdir')",
                 "copyDirectory('dir', 'copied')",
@@ -176,17 +176,17 @@ describe('useScripts', () => {
     });
 
     test('runs bare built-in names without parentheses', async () => {
-        await inTempDir(() => {
+        await inTempDir(async () => {
             writeFixture('pubspec.yaml', 'name: app\nversion: 1.2.3+4\n');
 
-            useScripts(scriptConfig(['versionUp']), 'postscripts').execute();
+            await useScripts(scriptConfig(['versionUp']), 'postscripts').execute();
 
             expect(fs.readFileSync('pubspec.yaml', 'utf-8')).toContain('version: 1.2.4+5');
         });
     });
 
     test('runs object built-ins with options and array parameters', async () => {
-        await inTempDir(() => {
+        await inTempDir(async () => {
             execSync('git init -q');
             execSync('git config user.email test@example.com');
             execSync('git config user.name Test');
@@ -194,7 +194,7 @@ describe('useScripts', () => {
             execSync('git add pubspec.yaml');
             execSync('git commit -qm init');
 
-            useScripts(scriptConfig([
+            await useScripts(scriptConfig([
                 {'git.tag': {prefix: 'release-'}},
                 {runCommand: ['echo ok > via-array.txt']},
             ]), 'postscripts').execute();
@@ -203,15 +203,15 @@ describe('useScripts', () => {
             expect(fs.readFileSync('via-array.txt', 'utf-8')).toBe('ok\n');
 
             // Tagging again is a no-op instead of failing.
-            expect(() => useScripts(
+            await useScripts(
                 scriptConfig([{'git.tag': {prefix: 'release-'}}]),
                 'postscripts'
-            ).execute()).not.toThrow();
+            ).execute();
         });
     });
 
     test('runs built-ins through the exported dispatcher', async () => {
-        await inTempDir(() => {
+        await inTempDir(async () => {
             writeFixture('pubspec.yaml', 'name: app\nversion: 1.0.0+1\n');
 
             runBuiltInTask('versionUp');
@@ -223,17 +223,170 @@ describe('useScripts', () => {
     test('rejects unknown tasks and missing Android wrappers', async () => {
         expect(() => runBuiltInTask('does.not.exist')).toThrow(/Unknown task/);
 
-        await inTempDir(() => {
+        await inTempDir(async () => {
             expect(() => runBuiltInTask('android.clean')).toThrow(/gradlew/);
         });
     });
 
     test('rejects unknown built-in objects', async () => {
-        await inTempDir(() => {
-            expect(() => useScripts(
+        await inTempDir(async () => {
+            await expect(useScripts(
                 scriptConfig([{'does.not.exist': {}}]),
                 'postscripts'
-            ).execute()).toThrow(/Unknown built-in task/);
+            ).execute()).rejects.toThrow(/Unknown workflow step 'does.not.exist'/);
+        });
+    });
+
+    test('runs workflows with typed steps', async () => {
+        await inTempDir(async () => {
+            writeFixture('pubspec.yaml', 'name: app\n');
+            writeFixture('Info.plist', plistFixture);
+
+            const config = {
+                variables: {},
+                prescripts: ['prepare'],
+                postscripts: [],
+                workflows: {
+                    prepare: [
+                        {run: 'echo hello > workflow.txt'},
+                        {copy: {from: 'workflow.txt', to: 'copy.txt'}},
+                        {copy: ['workflow.txt', 'copy2.txt']},
+                        {replace: {file: 'workflow.txt', from: 'hello', to: 'bye'}},
+                        {yaml: {file: 'pubspec.yaml', key: 'description', value: 'from workflow'}},
+                        {props: {file: 'config.properties', key: 'key', value: 'value'}},
+                        {plist: {file: 'Info.plist', key: 'CFBundleName', type: 'string', value: 'App'}},
+                        {delete: ['copy.txt', 'copy2.txt']},
+                    ],
+                },
+            } as any;
+
+            await useScripts(config, 'prescripts').execute();
+
+            expect(fs.readFileSync('workflow.txt', 'utf-8')).toBe('bye\n');
+            expect(fs.existsSync('copy.txt')).toBe(false);
+            expect(fs.existsSync('copy2.txt')).toBe(false);
+            expect(fs.readFileSync('pubspec.yaml', 'utf-8')).toContain('description: from workflow');
+            expect(fs.readFileSync('config.properties', 'utf-8')).toContain('key=value');
+            expect(usePlist('Info.plist').getSimple('CFBundleName')).toBe('App');
+        });
+    });
+
+    test('evaluates workflow conditions', async () => {
+        await inTempDir(async () => {
+            writeFixture('pubspec.yaml', 'name: app\n');
+
+            const config = {
+                variables: {},
+                prescripts: ['conditional'],
+                postscripts: [],
+                workflows: {
+                    conditional: [
+                        {run: 'echo flag > flag.txt', when: {flag: '--feature'}},
+                        {run: 'echo file > file.txt', when: {file: 'pubspec.yaml'}},
+                        {run: 'echo env > env.txt', when: {env: 'FLUTTERGEN_WORKFLOW_ENV'}},
+                        {run: 'echo platform > platform.txt', when: {platform: 'darwin'}},
+                        {run: 'echo skip > skip.txt', when: {not: {flag: '--feature'}}},
+                        {run: 'echo all > all.txt', when: {all: [{file: 'pubspec.yaml'}, {any: [{flag: '--missing'}, {file: 'pubspec.yaml'}]}]}},
+                    ],
+                },
+            } as any;
+
+            const originalArgvLength = process.argv.length;
+            process.argv.push('--feature');
+            process.env.FLUTTERGEN_WORKFLOW_ENV = '1';
+
+            try {
+                await useScripts(config, 'prescripts').execute();
+            } finally {
+                process.argv.length = originalArgvLength;
+                delete process.env.FLUTTERGEN_WORKFLOW_ENV;
+            }
+
+            expect(fs.existsSync('flag.txt')).toBe(true);
+            expect(fs.existsSync('file.txt')).toBe(true);
+            expect(fs.existsSync('env.txt')).toBe(true);
+            expect(fs.existsSync('platform.txt')).toBe(true);
+            expect(fs.existsSync('skip.txt')).toBe(false);
+            expect(fs.existsSync('all.txt')).toBe(true);
+        });
+    });
+
+    test('supports nested workflows and rejects cycles', async () => {
+        await inTempDir(async () => {
+            writeFixture('pubspec.yaml', 'name: app\n');
+
+            const nested = {
+                variables: {},
+                prescripts: ['outer'],
+                postscripts: [],
+                workflows: {
+                    outer: [{use: 'inner'}],
+                    inner: [{run: 'echo inner > inner.txt'}],
+                },
+            } as any;
+            await useScripts(nested, 'prescripts').execute();
+            expect(fs.readFileSync('inner.txt', 'utf-8')).toBe('inner\n');
+
+            const cyclic = {
+                variables: {},
+                prescripts: ['loopA'],
+                postscripts: [],
+                workflows: {
+                    loopA: [{use: 'loopB'}],
+                    loopB: [{use: 'loopA'}],
+                },
+            } as any;
+            await expect(useScripts(cyclic, 'prescripts').execute())
+                .rejects.toThrow(/Circular workflow reference/);
+
+            const missing = {
+                variables: {},
+                prescripts: [{use: 'missing'}],
+                postscripts: [],
+                workflows: {},
+            } as any;
+            await expect(useScripts(missing, 'prescripts').execute())
+                .rejects.toThrow(/Workflow 'missing' is not defined/);
+        });
+    });
+
+    test('rejects malformed workflow steps', async () => {
+        await inTempDir(async () => {
+            writeFixture('pubspec.yaml', 'name: app\n');
+
+            const config = {
+                variables: {},
+                prescripts: [{run: 'echo a', copy: {from: 'a', to: 'b'}}],
+                postscripts: [],
+                workflows: {},
+            } as any;
+            await expect(useScripts(config, 'prescripts').execute())
+                .rejects.toThrow(/exactly one action key/);
+
+            const unknown = {
+                variables: {},
+                prescripts: [{unknownStep: 'x'}],
+                postscripts: [],
+                workflows: {},
+            } as any;
+            await expect(useScripts(unknown, 'prescripts').execute())
+                .rejects.toThrow(/Unknown workflow step 'unknownStep'/);
+        });
+    });
+
+    test('supports generate steps', async () => {
+        await inTempDir(async () => {
+            writeFixture('pubspec.yaml', 'name: app\n');
+
+            const config = {
+                variables: {},
+                prescripts: [{generate: true}, {generate: false}],
+                postscripts: [],
+                workflows: {},
+            } as any;
+
+            // No ios/android projects exist, so generation is a safe no-op here.
+            await expect(useScripts(config, 'prescripts').execute()).resolves.toBeUndefined();
         });
     });
 });

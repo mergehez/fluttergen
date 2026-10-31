@@ -224,6 +224,46 @@ Available objects:
 | `variables` | `Record<string, any>` | Defined variables from `variables` section (alias for `vars`)   |
 | `vars`      | `Record<string, any>` | Defined variables from `variables` section                      |
 
+### Workflows
+
+Define reusable workflows instead of writing long task strings or duplicating groups:
+
+```yaml
+fluttergen:
+  workflows:
+    clean:
+      - run: flutter clean
+      - delete: [android, ios]
+      - run: flutter create . --platforms=android,ios
+      - flutter.pubGet
+
+    prepare:
+      - use: clean
+      - build.apk: { mode: release }
+        when: { flag: --build }
+
+  prescripts:
+    - use: prepare
+    - run: echo "ready"
+      when: { platform: darwin }
+```
+
+Supported step types: `run`, `delete`, `copy`, `yaml`, `plist`, `props`, `replace`,
+`generate`, `use`, and any built-in task. Workflows can be called by name
+(`- use: clean`) or used directly as a bare entry (`- clean`).
+
+Conditions use `when`:
+
+- `flag`: command-line flag, e.g. `{ flag: --build }`
+- `platform`: host OS (`macos`/`ios`, `linux`, `windows`, `unix`)
+- `env`: variable name or `{ KEY: value }` map
+- `file`: path(s) that must exist
+- `not`, `all`, `any` for composition
+
+A `generate` step runs icon/splash generation and (when `info` is configured) the
+rename step. It is useful in postscripts or custom workflows; when used in a
+prescript it runs in addition to the default generation.
+
 ### Built-in tasks
 
 Common Flutter/iOS/Android maintenance flows are built in, so you don't need to

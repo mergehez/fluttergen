@@ -55,6 +55,7 @@ describe('parsePubspecYaml', () => {
         expect(config.icon.borderRadius).toBe(0);
         expect(config.icon.padding).toEqual({android: 0.16, ios: 0.16});
         expect(config.info).toBeUndefined();
+        expect(config.workflows).toEqual({});
         expect(config.notificationIcon).toMatchObject({
             path: 'assets/icon.png',
             tintColor: '#FFFFFF',
@@ -131,6 +132,26 @@ fluttergen:
         expect(config.variables.nested).toEqual({key: 'value'});
     });
 
+    test('parses named workflows', () => {
+        const config = parsePubspecYaml(minimalConfig(`  workflows:
+    clean:
+      - run: flutter clean
+      - delete: [android, ios]
+    prepare:
+      - flutter.pubGet
+      - use: clean
+`));
+
+        expect(config.workflows.clean).toEqual([
+            {run: 'flutter clean'},
+            {delete: ['android', 'ios']},
+        ]);
+        expect(config.workflows.prepare).toEqual([
+            'flutter.pubGet',
+            {use: 'clean'},
+        ]);
+    });
+
     test('reads config from disk', () => {
         const dir = makeTempDir();
         const file = path.join(dir, 'pubspec.yaml');
@@ -186,6 +207,7 @@ fluttergen:
         expect(help).toContain('appName');
         expect(help).toContain('notificationIcon');
         expect(help).toContain('prescripts');
+        expect(help).toContain('workflows');
         expect(help).toContain('Required fields are marked');
     });
 });

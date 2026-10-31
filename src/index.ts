@@ -51,7 +51,7 @@ async function main() {
     const config = parsePubspecYamlFile('pubspec.yaml');
     // console.log("Parsed Fluttergen Configuration:", config);
     if (config.prescripts) {
-        useScripts(config, 'prescripts').execute();
+        await useScripts(config, 'prescripts').execute();
     }
 
     const imageGenerator = useImageGenerator(config);
@@ -65,7 +65,7 @@ async function main() {
     }
 
     if (config.postscripts) {
-        useScripts(config, 'postscripts').execute();
+        await useScripts(config, 'postscripts').execute();
     }
 
     await warnIfNewerVersionAvailable();

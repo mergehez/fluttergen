@@ -12,6 +12,8 @@ import * as propFile from 'properties-file'
 import {usePropertiesFile} from "fileHandler/usePropertiesFile.ts";
 import {usePbxproj} from "fileHandler/usePbxproj.ts";
 import {usePlaceholderReplacer} from "fileHandler/usePlaceholderReplacer.ts";
+import {useImageGenerator} from "./useImageGenerator.ts";
+import {useInfoHandler} from "./useInfoHandler.ts";
 
 function parseRegexLiteral(value: string): RegExp | undefined {
     if (!value.startsWith('/')) return undefined;
@@ -61,6 +63,85 @@ function assertMacOnly(taskName: string) {
     if (process.platform !== 'darwin') {
         throw new KnownError(`'${taskName}' requires macOS.`);
     }
+}
+
+function asArrayValue<T>(value: T | T[]): T[] {
+    return Array.isArray(value) ? value : [value];
+}
+
+function hostPlatformNames(): string[] {
+    switch (process.platform) {
+        case 'darwin':
+            return ['darwin', 'macos', 'ios', 'unix'];
+        case 'win32':
+            return ['win32', 'windows'];
+        case 'linux':
+            return ['linux', 'unix'];
+        default:
+            return [process.platform];
+    }
+}
+
+function evaluateCondition(condition: unknown): boolean {
+    if (condition === undefined || condition === null) return true;
+    if (typeof condition === 'boolean') return condition;
+    if (typeof condition === 'string') return process.argv.includes(condition);
+    if (Array.isArray(condition)) return condition.every(evaluateCondition);
+
+    if (typeof condition === 'object') {
+        const value = condition as Record<string, any>;
+
+        if ('all' in value) return asArrayValue(value.all).every(evaluateCondition);
+        if ('any' in value) return asArrayValue(value.any).some(evaluateCondition);
+        if ('not' in value) return !evaluateCondition(value.not);
+
+        if ('flag' in value) {
+            return asArrayValue(value.flag).every(flag => process.argv.includes(String(flag)));
+        }
+
+        if ('platform' in value) {
+            const current = hostPlatformNames();
+            return asArrayValue(value.platform).some(platform => current.includes(String(platform).toLowerCase()));
+        }
+
+        if ('env' in value) {
+            if (typeof value.env === 'string') {
+                return Boolean(process.env[value.env]);
+            }
+            if (value.env && typeof value.env === 'object') {
+                return Object.entries(value.env).every(([key, expected]) => {
+                    const actual = process.env[key];
+                    if (expected === true) return actual !== undefined && actual !== '';
+                    if (expected === false) return actual === undefined || actual === '';
+                    return actual === String(expected);
+                });
+            }
+            return false;
+        }
+
+        if ('file' in value) {
+            return asArrayValue(value.file).every(file => fs.existsSync(String(file)));
+        }
+    }
+
+    throw new KnownError(`Unsupported workflow condition: ${JSON.stringify(condition)}`);
+}
+
+function copyPath(source: string, destination: string) {
+    if (!fs.existsSync(source)) {
+        throw new KnownError(`Copy source not found: ${source}`);
+    }
+
+    if (fs.statSync(source).isDirectory()) {
+        fs.mkdirSync(destination, {recursive: true});
+        fs.cpSync(source, destination, {recursive: true});
+        return;
+    }
+
+    const isDestinationDir = fs.existsSync(destination) && fs.statSync(destination).isDirectory();
+    const targetPath = isDestinationDir ? path.join(destination, path.basename(source)) : destination;
+    fs.mkdirSync(path.dirname(targetPath), {recursive: true});
+    fs.copyFileSync(source, targetPath);
 }
 
 function getFunctions() {
@@ -343,14 +424,17 @@ export function runBuiltInTask(taskName: string, params?: unknown) {
 
 type Task = string | Record<string, any>
 
+const workflowActions = new Set(['run', 'delete', 'copy', 'yaml', 'plist', 'props', 'replace', 'generate']);
+
 export function useScripts(config: FluttergenConfig, section: 'prescripts' | 'postscripts') {
     return {
         // noinspection JSUnusedGlobalSymbols
-        execute: () => {
+        execute: async () => {
             const scripts = config[section];
             if (!scripts || scripts.length === 0)
                 return;
 
+            const workflows = config.workflows ?? {};
             const tasks: Task[] = [];
             const groupedTasks: Record<string, Task[]> = {};
             for (const task of scripts) {
@@ -369,13 +453,12 @@ export function useScripts(config: FluttergenConfig, section: 'prescripts' | 'po
                         groupedTasks[groupName].push(...(task as any)[keys[0]]);
                         continue;
                     }
-                    // A single-key object can invoke a built-in task with options.
                     tasks.push(task);
                     continue;
                 }
 
                 throw new KnownError(
-                    `Scripts must be strings representing function calls, built-in task names, or group definitions. Invalid entry: ${JSON.stringify(task)}`
+                    `Scripts must be strings, built-in task names, workflow steps, or group definitions. Invalid entry: ${JSON.stringify(task)}`
                 );
             }
 
@@ -383,35 +466,201 @@ export function useScripts(config: FluttergenConfig, section: 'prescripts' | 'po
             const functionPaths = collectFunctionPaths(predefinedFns);
             const builtInPaths = new Set(functionPaths);
             const env = fs.existsSync('.env') ? propFile.getProperties(fs.readFileSync('.env')) : undefined;
+            const workflowStack: string[] = [];
             console.log(`- Running tasks from '${section}' section`);
 
-            function runTasks(tasksToRun: Task[]) {
+            async function runWorkflow(workflowName: string) {
+                const steps = workflows[workflowName];
+                if (!Array.isArray(steps)) {
+                    throw new KnownError(`Workflow '${workflowName}' is not defined.`);
+                }
+                if (workflowStack.includes(workflowName)) {
+                    throw new KnownError(`Circular workflow reference: ${[...workflowStack, workflowName].join(' -> ')}`);
+                }
+
+                console.log(`- Running workflow '${workflowName}'`);
+                workflowStack.push(workflowName);
+                try {
+                    await runTasks(steps as Task[]);
+                } finally {
+                    workflowStack.pop();
+                }
+            }
+
+            async function runWorkflowAction(action: string, value: any) {
+                switch (action) {
+                    case 'run': {
+                        for (const command of asArrayValue(value)) {
+                            if (typeof command === 'string') {
+                                execCommand(command);
+                            } else if (command && typeof command === 'object' && typeof command.command === 'string') {
+                                execCommand(command.command, {cwd: command.cwd});
+                            } else {
+                                throw new KnownError(`Invalid 'run' step: ${JSON.stringify(command)}`);
+                            }
+                        }
+                        return;
+                    }
+
+                    case 'delete': {
+                        for (const target of asArrayValue(value)) {
+                            if (typeof target !== 'string' || !target.trim()) {
+                                throw new KnownError(`Invalid 'delete' step: ${JSON.stringify(target)}`);
+                            }
+                            const resolved = path.resolve(target);
+                            if (resolved === path.parse(resolved).root || resolved === path.resolve('.')) {
+                                throw new KnownError(`Refusing to delete '${target}'.`);
+                            }
+                            console.log(`- Deleting ${target}`);
+                            fs.rmSync(resolved, {recursive: true, force: true});
+                        }
+                        return;
+                    }
+
+                    case 'copy': {
+                        const isSinglePair = Array.isArray(value)
+                            && value.length === 2
+                            && value.every(item => typeof item === 'string');
+                        const items = isSinglePair ? [value] : asArrayValue(value);
+
+                        for (const item of items) {
+                            let source: string | undefined;
+                            let destination: string | undefined;
+
+                            if (Array.isArray(item)) {
+                                [source, destination] = item;
+                            } else if (item && typeof item === 'object') {
+                                source = item.from;
+                                destination = item.to;
+                            }
+
+                            if (!source || !destination) {
+                                throw new KnownError(`Invalid 'copy' step: ${JSON.stringify(item)}`);
+                            }
+                            console.log(`- Copying ${source} -> ${destination}`);
+                            copyPath(source, destination);
+                        }
+                        return;
+                    }
+
+                    case 'yaml': {
+                        if (!value || typeof value !== 'object' || !value.file || !value.key) {
+                            throw new KnownError(`Invalid 'yaml' step: ${JSON.stringify(value)}`);
+                        }
+                        if ('add' in value) {
+                            for (const item of asArrayValue(value.add)) {
+                                useYamlFile(value.file).addToList(value.key, String(item));
+                            }
+                        } else if ('value' in value) {
+                            useYamlFile(value.file).set(value.key, value.value);
+                        } else {
+                            throw new KnownError(`'yaml' step requires 'value' or 'add': ${JSON.stringify(value)}`);
+                        }
+                        return;
+                    }
+
+                    case 'plist': {
+                        if (!value || typeof value !== 'object' || !value.file || !value.key || !value.type) {
+                            throw new KnownError(`Invalid 'plist' step: ${JSON.stringify(value)}`);
+                        }
+                        if ('add' in value) {
+                            for (const item of asArrayValue(value.add)) {
+                                usePlist(value.file).addToList(value.key, value.type, String(item));
+                            }
+                        } else if (value.insert) {
+                            usePlist(value.file).insert(value.key, value.type, value.value);
+                        } else {
+                            usePlist(value.file).set(value.key, value.type, value.value);
+                        }
+                        return;
+                    }
+
+                    case 'props': {
+                        if (!value || typeof value !== 'object' || !value.file || !value.key || !('value' in value)) {
+                            throw new KnownError(`Invalid 'props' step: ${JSON.stringify(value)}`);
+                        }
+                        usePropertiesFile(value.file).set(value.key, String(value.value));
+                        return;
+                    }
+
+                    case 'replace': {
+                        if (!value || typeof value !== 'object' || !value.file || value.from === undefined || value.to === undefined) {
+                            throw new KnownError(`Invalid 'replace' step: ${JSON.stringify(value)}`);
+                        }
+                        const regexLiteral = parseRegexLiteral(String(value.from));
+                        let search: string | RegExp = value.flags
+                            ? new RegExp(String(value.from), String(value.flags))
+                            : String(value.from);
+                        if (regexLiteral) {
+                            search = regexLiteral;
+                        }
+                        replaceInFile(value.file, search, String(value.to));
+                        return;
+                    }
+
+                    case 'generate': {
+                        if (value === false) return;
+                        await useImageGenerator(config).execute();
+                        const includeInfo = !(value && typeof value === 'object' && value.info === false);
+                        if (config.info && includeInfo) {
+                            useInfoHandler(config.info).execute();
+                        }
+                        return;
+                    }
+
+                    default:
+                        throw new KnownError(`Unsupported workflow step '${action}'.`);
+                }
+            }
+
+            async function runTasks(tasksToRun: Task[]) {
                 for (const task of tasksToRun) {
                     const params = config.variables;
                     const vars = config.variables;
                     const variables = config.variables;
                     const argv = process.argv;
 
-                    function runGroup(groupName: string) {
+                    async function runGroup(groupName: string) {
                         const groupTasks = groupedTasks[groupName];
                         if (!groupTasks) {
                             throw new KnownError(`Task group '${groupName}' is not defined.`);
                         }
-                        runTasks(groupTasks);
+                        await runTasks(groupTasks);
                     }
 
                     if (typeof task === 'object' && task !== null) {
-                        const keys = Object.keys(task);
-                        if (keys.length !== 1) {
-                            throw new KnownError(`Built-in task entries must have exactly one key: ${JSON.stringify(task)}`);
+                        if ('when' in task && !evaluateCondition((task as any).when)) {
+                            console.log(`- Skipping step (condition not met): ${JSON.stringify(task)}`);
+                            continue;
                         }
-                        const [taskName] = keys;
-                        if (!builtInPaths.has(taskName)) {
-                            throw new KnownError(`Unknown built-in task '${taskName}'.`);
+
+                        const entries = Object.entries(task).filter(([key]) => key !== 'when');
+                        if (entries.length !== 1) {
+                            throw new KnownError(`Workflow steps must have exactly one action key: ${JSON.stringify(task)}`);
                         }
-                        console.log(`- Executing built-in task: ${taskName}`);
-                        callFunctionPath(predefinedFns, taskName, (task as any)[taskName]);
-                        continue;
+
+                        const [action, value] = entries[0];
+
+                        if (action === 'use') {
+                            for (const workflowName of asArrayValue(value)) {
+                                await runWorkflow(String(workflowName));
+                            }
+                            continue;
+                        }
+
+                        if (workflowActions.has(action)) {
+                            console.log(`- Executing step: ${action}`);
+                            await runWorkflowAction(action, value);
+                            continue;
+                        }
+
+                        if (builtInPaths.has(action)) {
+                            console.log(`- Executing built-in task: ${action}`);
+                            await callFunctionPath(predefinedFns, action, value);
+                            continue;
+                        }
+
+                        throw new KnownError(`Unknown workflow step '${action}'.`);
                     }
 
                     let expression = task.trim();
@@ -422,7 +671,13 @@ export function useScripts(config: FluttergenConfig, section: 'prescripts' | 'po
                     // Bare built-in names (e.g. `flutter.clean` or `versionUp`) run without eval.
                     if (builtInPaths.has(expression)) {
                         console.log(`- Executing built-in task: ${expression}`);
-                        callFunctionPath(predefinedFns, expression);
+                        await callFunctionPath(predefinedFns, expression);
+                        continue;
+                    }
+
+                    // Bare workflow names (e.g. `clean`) run the matching workflow.
+                    if (Object.prototype.hasOwnProperty.call(workflows, expression)) {
+                        await runWorkflow(expression);
                         continue;
                     }
 
@@ -435,11 +690,11 @@ export function useScripts(config: FluttergenConfig, section: 'prescripts' | 'po
                     }
 
                     console.log(`- Executing task: ${expression}`);
-                    eval(expression);
+                    await eval(expression);
                 }
             }
 
-            runTasks(tasks)
+            await runTasks(tasks)
         }
     }
 }
